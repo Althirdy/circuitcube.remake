@@ -1,0 +1,13 @@
+import { Box3, Vector3 } from "three";
+
+/**
+ * A stable composition around the breadboard working area. The bounds extend
+ * left far enough to keep the power supply at the edge without letting its
+ * much larger body determine the zoom level.
+ */
+export function createHomeBounds(width: number) {
+  return new Box3().setFromCenterAndSize(
+    new Vector3(width * 0.55, width * 0.32, width * 0.2),
+    new Vector3(width * 2.1, width * 0.9, width * 1.15),
+  );
+}

@@ -1,0 +1,37 @@
+import { Box3, Mesh, Vector3 } from 'three';
+import type { Group } from 'three';
+import type { ComponentInstance, LoadedAsset, SocketDefinition } from '../types/workspace';
+import { mountPosition } from '../engine/breadboard';
+
+export function componentPose(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketDefinition[]) {
+  const mount = instance.mount ? mountPosition(instance.mount, instances, sockets) : null;
+  return mount ? { position: new Vector3(mount.position[0], mount.position[1] + 0.002 - (asset.ledBaseY ?? 0.02495), mount.position[2]), rotation: mount.rotation } : { position: new Vector3(instance.position[0], 0, instance.position[1]), rotation: instance.rotation };
+}
+
+// Change only cloned node transforms. Geometry, materials and the source GLB stay shared.
+export function seatLedPins(object: Group) {
+  for (const name of ['LED_Anode_Pin', 'LED_Cathode_Pin']) {
+    const pin = object.getObjectByName(name);
+    if (!(pin instanceof Mesh)) continue;
+    pin.geometry.computeBoundingBox();
+    const bounds = pin.geometry.boundingBox!;
+    const top = pin.position.y + bounds.max.y * pin.scale.y;
+    const height = top + 0.04;
+    pin.scale.y = height / (bounds.max.y - bounds.min.y);
+    pin.position.y = top - bounds.max.y * pin.scale.y;
+  }
+  for (const name of ['Anode_Wire_Anchor', 'Cathode_Wire_Anchor']) {
+    const anchor = object.getObjectByName(name);
+    if (anchor) anchor.position.y = -0.04;
+  }
+  object.updateMatrixWorld(true);
+}
+
+export function componentBounds(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketDefinition[]) {
+  const pose = componentPose(instance, asset, instances, sockets);
+  const object = asset.object.clone(true);
+  if (instance.mount) seatLedPins(object);
+  const wrapper = object.clone(false);
+  wrapper.clear(); wrapper.add(object); wrapper.position.copy(pose.position); wrapper.rotation.y = pose.rotation;
+  return new Box3().setFromObject(wrapper);
+}
