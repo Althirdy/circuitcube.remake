@@ -18,8 +18,8 @@ const initial = (): Layout => ({ instances: [{ id: 'board', modelId: 'breadboard
 const ref = (terminalId: string, componentId = 'board') => ({ componentId, terminalId });
 const jumper = (): WireInstance => ({ id: 'wire', from: ref('a1'), to: ref('top-positive-1'), color: 'green', height: 0.005, bends: [[0.01, 0.013765, 0.03]] });
 
-test('all 400 targets match connected socket meshes in the actual GLB', async () => {
-  const board = await asset('breadboard');
+for (const [modelId, count] of [['breadboard', 400], ['breadboard-large', 830]] as const) test(`all ${count} targets match connected socket meshes in ${modelId}.glb`, async () => {
+  const board = await asset(modelId);
   const contacts = board.object.getObjectByName('Socket_Contacts') as Mesh;
   expect(contacts).toBeDefined();
   const positions = contacts.geometry.getAttribute('position');
@@ -39,10 +39,10 @@ test('all 400 targets match connected socket meshes in the actual GLB', async ()
   const bounds = new Map<string, Box3>();
   for (const [key, point] of points) { const id = root(key); if (!bounds.has(id)) bounds.set(id, new Box3()); bounds.get(id)!.expandByPoint(point); }
   const centers = [...bounds.values()].map(box => box.getCenter(new Vector3()));
-  expect(centers).toHaveLength(400);
-  expect(board.sockets).toHaveLength(400);
+  expect(centers).toHaveLength(count);
+  expect(board.sockets).toHaveLength(count);
   for (const socket of board.sockets!) expect(Math.min(...centers.map(center => center.distanceTo(new Vector3(...socket.position))))).toBeLessThan(0.000001);
-  expect(new Set(board.sockets!.map(socket => socket.id)).size).toBe(400);
+  expect(new Set(board.sockets!.map(socket => socket.id)).size).toBe(count);
   expect(sockets.filter(socket => socket.groupId === 'ae-10').map(socket => socket.id)).toEqual(['a10', 'b10', 'c10', 'd10', 'e10']);
   expect(sockets.filter(socket => socket.groupId === 'top-positive')).toHaveLength(25);
   expect(socketById(sockets, 'top-positive-6')!.position[0] - socketById(sockets, 'top-positive-5')!.position[0]).toBeCloseTo(0.00394, 6);

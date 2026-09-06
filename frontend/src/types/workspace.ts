@@ -1,6 +1,8 @@
 import type { Group, Vector3 } from "three";
 
-export type ModelId = "breadboard" | "power" | "led";
+export type BoardModelId = "breadboard" | "breadboard-large";
+export type ModelId = BoardModelId | "power" | "led" | "slide-switch";
+export type SocketSource = SocketDefinition[] | Record<BoardModelId, SocketDefinition[]>;
 export type GroundPosition = [number, number];
 export type Point3 = [number, number, number];
 export type TerminalDefinition = {
@@ -15,6 +17,7 @@ export type SocketDefinition = TerminalDefinition & {
 };
 export type TerminalRef = { componentId: string; terminalId: string };
 export type LedMount = { breadboardId: string; anode: string; cathode: string };
+export type SwitchMount = { breadboardId: string; pins: [string, string, string] };
 export type WireColor = "black" | "red" | "blue" | "green" | "yellow" | "orange";
 export type WireInstance = { id: string; from: TerminalRef; to: TerminalRef; color: WireColor; bends: Point3[]; height: number };
 export type Layout = { instances: ComponentInstance[]; wires: WireInstance[] };
@@ -23,11 +26,11 @@ export type WireDraft = { from: TerminalRef; bends: Point3[]; preview: Point3 | 
 export type InteractionMode =
   | { kind: "idle" }
   | { kind: "component-placement"; modelId: ModelId; flipped: boolean }
-  | { kind: "led-mounting"; componentId: string }
+  | { kind: "component-mounting"; componentId: string }
   | { kind: "component-dragging"; componentId: string }
   | { kind: "wire-drawing"; draft: WireDraft }
   | { kind: "bend-editing"; wireId: string; index: number };
-export type MountCandidate = { mount: LedMount | null; valid: boolean; reason: string };
+export type MountCandidate = { mount: LedMount | null; switchMount?: SwitchMount; valid: boolean; reason: string };
 export type WireContextMenu = { x: number; y: number; wireId: string; point: Point3; insertIndex: number; bendIndex?: number };
 export type ComponentInstance = {
   id: string;
@@ -35,6 +38,8 @@ export type ComponentInstance = {
   position: GroundPosition;
   rotation: number;
   mount?: LedMount;
+  switchMount?: SwitchMount;
+  switchPosition?: 'left' | 'right';
   outputEnabled?: boolean;
 };
 export type ModelDefinition = {

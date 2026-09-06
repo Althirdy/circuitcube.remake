@@ -1,9 +1,9 @@
 import { CurvePath, LineCurve3, QuadraticBezierCurve3, Vector3 } from 'three';
 import { localToWorld } from '../engine/breadboard';
 import { routingSurface, terminalDefinition } from '../engine/terminals';
-import type { ComponentInstance, Point3, SocketDefinition, TerminalDefinition, WireInstance, TerminalRef } from '../types/workspace';
+import type { ComponentInstance, Point3, SocketSource, TerminalDefinition, WireInstance, TerminalRef } from '../types/workspace';
 
-export function terminalPosition(ref: TerminalRef, instances: ComponentInstance[], sockets: SocketDefinition[], powerTerminals: TerminalDefinition[] = []): Point3 | null {
+export function terminalPosition(ref: TerminalRef, instances: ComponentInstance[], sockets: SocketSource, powerTerminals: TerminalDefinition[] = []): Point3 | null {
   const component = instances.find(instance => instance.id === ref.componentId);
   const terminal = terminalDefinition(component, ref.terminalId, sockets, powerTerminals);
   return component && terminal ? localToWorld(component, terminal.position) : null;
@@ -11,7 +11,7 @@ export function terminalPosition(ref: TerminalRef, instances: ComponentInstance[
 
 // Each lead has three points: inserted tip, face center and outward exit.
 // Keeping these slots fixed also keeps the segment-to-bend editor consistent.
-export function terminalLead(ref: TerminalRef, routeY: number, instances: ComponentInstance[], sockets: SocketDefinition[], powerTerminals: TerminalDefinition[] = []): Point3[] {
+export function terminalLead(ref: TerminalRef, routeY: number, instances: ComponentInstance[], sockets: SocketSource, powerTerminals: TerminalDefinition[] = []): Point3[] {
   const component = instances.find(instance => instance.id === ref.componentId);
   const terminal = terminalDefinition(component, ref.terminalId, sockets, powerTerminals);
   if (!component || !terminal) return [];
@@ -22,7 +22,7 @@ export function terminalLead(ref: TerminalRef, routeY: number, instances: Compon
   return [tip, face, exit].map(point => localToWorld(component, point.toArray()));
 }
 
-export function wirePoints(wire: WireInstance, instances: ComponentInstance[], sockets: SocketDefinition[], powerTerminals: TerminalDefinition[] = []): Point3[] {
+export function wirePoints(wire: WireInstance, instances: ComponentInstance[], sockets: SocketSource, powerTerminals: TerminalDefinition[] = []): Point3[] {
   const source = instances.find(instance => instance.id === wire.from.componentId);
   if (!source) return [];
   const routeY = routingSurface(wire.from, instances, sockets) + wire.height;

@@ -12,7 +12,7 @@ import {
 } from "three";
 import type { Object3D, WebGLRenderer } from "three";
 import type { ModelDefinition } from "../types/workspace";
-import { sourceSockets } from '../engine/breadboard';
+import { isBreadboard, sourceSockets } from '../engine/breadboard';
 import type { Point3 } from '../types/workspace';
 import { preparePowerTerminals } from './powerAsset';
 
@@ -28,7 +28,13 @@ export function prepareModel(scene: Object3D, model: ModelDefinition) {
   const object = new Group();
   object.add(transformed);
   object.updateMatrixWorld(true);
-  const sockets = model.id === 'breadboard' ? sourceSockets().map(socket => ({ ...socket, position: new Vector3(...socket.position).applyMatrix4(transformed.matrixWorld).toArray() as Point3 })) : undefined;
+  const sockets = isBreadboard(model.id) ? sourceSockets(model.id).map(socket => ({ ...socket, position: new Vector3(...socket.position).applyMatrix4(transformed.matrixWorld).toArray() as Point3 })) : undefined;
+  if (model.id === 'slide-switch') {
+    for (const name of ['SlideSwitch_Slider', 'SlideSwitch_Slider_Grip']) {
+      const part = object.getObjectByName(name);
+      if (part) part.userData.slideSwitch = true;
+    }
+  }
   const flange = object.getObjectByName('LED_BaseFlange');
   const ledBaseY = flange ? new Box3().setFromObject(flange).min.y : undefined;
   const terminals = model.id === 'power' ? preparePowerTerminals(object) : sockets;

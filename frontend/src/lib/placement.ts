@@ -12,25 +12,25 @@ export function snapPosition(
     : position;
 }
 
-export function createDemo(width: number): ComponentInstance[] {
+export function createDemo(width: number, supplyWidth = 0.2, ledWidth = 0.0058): ComponentInstance[] {
   return [
     {
       id: "demo-breadboard",
-      modelId: "breadboard",
-      position: [width * 0.45, width * 0.35],
+      modelId: "breadboard-large",
+      position: [0, 0],
       rotation: 0,
     },
     {
       id: "demo-power",
       modelId: "power",
       outputEnabled: false,
-      position: [-width * 1.65, -width * 0.35],
+      position: [-width / 2 - supplyWidth / 2 - 0.02, 0],
       rotation: 0,
     },
     {
       id: "demo-led",
       modelId: "led",
-      position: [width * 1.2, width * 0.35],
+      position: [width / 2 + ledWidth / 2 + 0.015, 0],
       rotation: 0,
     },
   ];

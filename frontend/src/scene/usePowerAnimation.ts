@@ -11,10 +11,12 @@ function subscribe(listener: () => void) {
 }
 const reducedMotion = () => window.matchMedia(query).matches;
 
-export function usePowerAnimation(visuals: PowerVisuals | null, switchOn: boolean, lightOn: boolean) {
+export function usePowerAnimation(visuals: PowerVisuals | null, switchOn: boolean, lightOn: boolean, duration = 180) {
   const { invalidate } = useThree();
   const reduced = useSyncExternalStore(subscribe, reducedMotion, () => false);
-  const current = useRef({ rocker: 0, light: 0 });
+  // Recreated render nodes (for example after a mount drag) start at their
+  // retained state; only subsequent electrical changes need a transition.
+  const current = useRef({ rocker: Number(switchOn), light: Number(lightOn) });
   const transition = useRef({ started: 0, rocker: 0, light: 0, active: false });
   useEffect(() => {
     if (!visuals) return;
@@ -30,16 +32,16 @@ export function usePowerAnimation(visuals: PowerVisuals | null, switchOn: boolea
       visuals.apply(current.current.rocker, current.current.light);
     }
     invalidate();
-  }, [visuals, switchOn, lightOn, reduced, invalidate]);
+  }, [visuals, switchOn, lightOn, reduced, invalidate, duration]);
   useFrame(() => {
     if (!visuals || !transition.current.active) return;
     const elapsed = performance.now() - transition.current.started;
     current.current = {
-      rocker: transitionValue(transition.current.rocker, Number(switchOn), elapsed, 180),
+      rocker: transitionValue(transition.current.rocker, Number(switchOn), elapsed, duration),
       light: transitionValue(transition.current.light, Number(lightOn), elapsed, 150),
     };
     visuals.apply(current.current.rocker, current.current.light);
-    transition.current.active = elapsed < 180;
+    transition.current.active = elapsed < Math.max(duration, 150);
     if (transition.current.active) invalidate();
   });
   useEffect(() => () => visuals?.dispose(), [visuals]);

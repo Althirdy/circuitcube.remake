@@ -13,7 +13,7 @@ import { Connections, SocketFeedback } from '../components/3d/Connections';
 function Contents({ workspace }: { workspace: Workspace }) {
   const controls = useRef<OrbitControls | null>(null);
   const feedback = useSceneInteraction(workspace, controls);
-  const preview = workspace.placing || workspace.mode.kind === 'led-mounting' ? feedback.preview : null;
+  const preview = workspace.placing || workspace.mode.kind === 'component-mounting' ? feedback.preview : null;
   const placementAsset = preview
     ? workspace.assets[preview.modelId]
     : null;
@@ -45,7 +45,7 @@ function Contents({ workspace }: { workspace: Workspace }) {
       />
       <group name="placed-components">
         {workspace.instances.map((instance) => {
-          if (workspace.mode.kind === 'led-mounting' && feedback.hiddenId === instance.id) return null;
+          if (workspace.mode.kind === 'component-mounting' && feedback.hiddenId === instance.id) return null;
           const state = workspace.assets[instance.modelId];
           return state.status === "ready" ? (
             <group key={instance.id} userData={{ instanceId: instance.id }}>
@@ -62,7 +62,7 @@ function Contents({ workspace }: { workspace: Workspace }) {
         })}
       </group>
       <Connections workspace={workspace} />
-      <SocketFeedback workspace={workspace} hover={feedback.hover} candidate={preview ? feedback.candidate : null} />
+      <SocketFeedback workspace={workspace} hoverSwitch={feedback.hoverSwitch} hover={feedback.hover} candidate={preview ? feedback.candidate : null} />
       {preview && placementAsset?.status === "ready" && (
         <ModelInstance
           preview

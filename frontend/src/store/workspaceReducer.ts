@@ -1,3 +1,4 @@
+import { modelCatalog } from '../lib/modelCatalog';
 import { createDemo } from "../lib/placement";
 import type {
   Assets,
@@ -25,11 +26,7 @@ type Action =
     };
 
 export const initialWorkspace: State = {
-  assets: {
-    breadboard: { status: "loading", attempt: 0 },
-    power: { status: "loading", attempt: 0 },
-    led: { status: "loading", attempt: 0 },
-  },
+  assets: Object.fromEntries(modelCatalog.map(model => [model.id, { status: "loading", attempt: 0 }])) as Assets,
   instances: [],
   wires: [],
   initialized: false,
@@ -51,12 +48,12 @@ export function workspaceReducer(state: State, action: Action): State {
     !state.initialized &&
     Object.values(assets).every((asset) => asset.status !== "loading")
   ) {
-    const board = assets.breadboard;
+    const board = assets['breadboard-large'];
     const width =
       board.status === "ready"
         ? Math.max(board.asset.size.x, board.asset.size.z)
-        : 0.084;
-    return { assets, initialized: true, instances: createDemo(width), wires: [] };
+        : 0.165;
+    return { assets, initialized: true, instances: createDemo(width, assets.power.status === 'ready' ? assets.power.asset.size.x : 0.2, assets.led.status === 'ready' ? assets.led.asset.size.x : 0.0058), wires: [] };
   }
   return { ...state, assets };
 }

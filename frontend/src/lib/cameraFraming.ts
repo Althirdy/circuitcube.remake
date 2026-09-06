@@ -7,7 +7,7 @@ import { Box3, Vector3 } from "three";
  */
 export function createHomeBounds(width: number) {
   return new Box3().setFromCenterAndSize(
-    new Vector3(width * 0.55, width * 0.32, width * 0.2),
-    new Vector3(width * 2.1, width * 0.9, width * 1.15),
+    new Vector3(-0.02, width * 0.175, 0),
+    new Vector3(width + 0.12, width * 0.35, Math.max(0.08, width * 0.7)),
   );
 }

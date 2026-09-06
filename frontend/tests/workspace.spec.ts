@@ -5,7 +5,7 @@ import { Vector3 } from "three";
 
 async function ready(page: Page) {
   await page.goto("/");
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(3);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(5);
   await expect(page.locator(".scene-item")).toHaveCount(3);
   await expect(
     page.getByRole("button", { name: "Place Breadboard", exact: true }),
@@ -22,8 +22,8 @@ test("renders the actual assets, independent copies, and keyboard editing", asyn
   await page.screenshot({ path: "artifacts/workspace-desktop.png" });
   for (const card of await page.locator(".model-card").all())
     await card.getByRole("button", { name: "Add at view center" }).click();
-  await expect(page.locator(".scene-item")).toHaveCount(6);
-  await expect(page.locator(".selection-panel")).toContainText("LED");
+  await expect(page.locator(".scene-item")).toHaveCount(8);
+  await expect(page.locator(".selection-panel")).toContainText("Slide Switch");
   await page.keyboard.press("r");
   await expect(page.locator(".selection-position")).toContainText("180°");
   const beforeMove = await page.locator(".selection-position").innerText();
@@ -39,8 +39,8 @@ test("renders the actual assets, independent copies, and keyboard editing", asyn
     beforeFreeMove,
   );
   await page.keyboard.press("Delete");
-  await expect(page.locator(".scene-item")).toHaveCount(5);
-  await page.locator(".scene-item").filter({ hasText: "LED" }).click();
+  await expect(page.locator(".scene-item")).toHaveCount(7);
+  await page.locator(".scene-item").filter({ hasText: "LED" }).first().click();
   await expect(page.locator(".selection-position")).toContainText("0°");
   await page.getByRole("button", { name: "Focus selected component" }).click();
   await page.screenshot({ path: "artifacts/led-inspection.png" });
@@ -159,14 +159,14 @@ test("Home uses fixed work-area bounds while Fit All includes distant parts", as
   page,
 }) => {
   await ready(page);
-  const homeSize = createHomeBounds(0.084).getSize(new Vector3());
-  expect(homeSize.x).toBeCloseTo(0.084 * 2.1);
-  expect(homeSize.y).toBeCloseTo(0.084 * 0.9);
-  expect(homeSize.z).toBeCloseTo(0.084 * 1.15);
+  const homeSize = createHomeBounds(0.165).getSize(new Vector3());
+  expect(homeSize.x).toBeCloseTo(0.165 + 0.12);
+  expect(homeSize.y).toBeCloseTo(0.165 * 0.35);
+  expect(homeSize.z).toBeCloseTo(0.165 * 0.7);
 
   await page
     .locator(".model-card")
-    .filter({ hasText: "Breadboard" })
+    .filter({ hasText: "Full-Size Breadboard" })
     .getByRole("button", { name: "Add at view center" })
     .click();
   for (let step = 0; step < 80; step++) await page.keyboard.press("ArrowRight");
@@ -179,11 +179,11 @@ test("Home uses fixed work-area bounds while Fit All includes distant parts", as
   expect(fitted.equals(homeView)).toBe(false);
 });
 
-test("one failed model stays isolated and can be retried without resetting edits", async ({
+for (const [id, label] of [["power", "Bench DC Power Supply"], ["breadboard-large", "Full-Size Breadboard"], ["slide-switch", "Slide Switch"]]) test(`${id} failure stays isolated and can be retried without resetting edits`, async ({
   page,
 }) => {
   let block = true;
-  await page.route("**/models/power.glb*", (route) =>
+  await page.route(`**/models/${id}.glb*`, (route) =>
     block ? route.abort() : route.continue(),
   );
   await page.goto("/");
@@ -193,19 +193,20 @@ test("one failed model stays isolated and can be retried without resetting edits
   await expect(
     page.getByRole("button", { name: "Place Breadboard", exact: true }),
   ).toBeEnabled();
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(2);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(4);
   await page
+    .locator('.model-card')
+    .filter({ has: page.getByRole('button', { name: 'Place Breadboard', exact: true }) })
     .getByRole("button", { name: "Add at view center" })
-    .first()
     .click();
   await expect(page.locator(".scene-item")).toHaveCount(4);
   block = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(3);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(5);
   await expect(page.locator(".scene-item")).toHaveCount(4);
   await expect(
     page.getByRole("button", {
-      name: "Place Bench DC Power Supply",
+      name: `Place ${label}`,
       exact: true,
     }),
   ).toBeEnabled();

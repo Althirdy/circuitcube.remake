@@ -1,9 +1,18 @@
 import { Box3, Mesh, Vector3 } from 'three';
 import type { Group } from 'three';
-import type { ComponentInstance, LoadedAsset, SocketDefinition } from '../types/workspace';
-import { mountPosition } from '../engine/breadboard';
+import type { ComponentInstance, LoadedAsset, SocketSource } from '../types/workspace';
+import { mountPosition, switchMountPosition } from '../engine/breadboard';
 
-export function componentPose(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketDefinition[]) {
+export function componentPose(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketSource) {
+  if (instance.switchMount) {
+    const mounted = switchMountPosition(instance.switchMount, instances, sockets);
+    const anchor = asset.object.getObjectByName('SlideSwitch_Anchor_2');
+    if (mounted && anchor) {
+      asset.object.updateMatrixWorld(true);
+      const offset = anchor.getWorldPosition(new Vector3()).applyAxisAngle(new Vector3(0, 1, 0), mounted.rotation);
+      return { position: new Vector3(...mounted.position).add(new Vector3(0, -0.002, 0)).sub(offset), rotation: mounted.rotation };
+    }
+  }
   const mount = instance.mount ? mountPosition(instance.mount, instances, sockets) : null;
   return mount ? { position: new Vector3(mount.position[0], mount.position[1] + 0.002 - (asset.ledBaseY ?? 0.02495), mount.position[2]), rotation: mount.rotation } : { position: new Vector3(instance.position[0], 0, instance.position[1]), rotation: instance.rotation };
 }
@@ -27,7 +36,7 @@ export function seatLedPins(object: Group) {
   object.updateMatrixWorld(true);
 }
 
-export function componentBounds(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketDefinition[]) {
+export function componentBounds(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketSource) {
   const pose = componentPose(instance, asset, instances, sockets);
   const object = asset.object.clone(true);
   if (instance.mount) seatLedPins(object);

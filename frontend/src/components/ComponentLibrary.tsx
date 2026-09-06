@@ -20,7 +20,7 @@ export function ComponentLibrary({
         <div>
           <span className="eyebrow">YOUR TOOLKIT</span>
           <h2>
-            Components <span>03</span>
+            Components <span>{String(modelCatalog.length).padStart(2, '0')}</span>
           </h2>
         </div>
         <button
@@ -39,7 +39,7 @@ export function ComponentLibrary({
       <div className="library-category">
         <Icon name="layers" size={16} />
         <span>Basic electronics</span>
-        <span className="category-count">3</span>
+        <span className="category-count">{modelCatalog.length}</span>
       </div>
       <div className="model-list">
         {modelCatalog.map((model, index) => {

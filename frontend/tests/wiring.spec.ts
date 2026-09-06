@@ -1,39 +1,10 @@
 import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
 import { Box3, PerspectiveCamera, Vector3 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { prepareModel } from '../src/lib/modelAssets';
-import { createDemo, snapPosition } from '../src/lib/placement';
+import { snapPosition } from '../src/lib/placement';
 import { localToWorld, socketById } from '../src/engine/breadboard';
+import { focusBoard } from './helpers/boardView';
 import type { Point3 } from '../src/types/workspace';
 
-async function focusBoard(page: Page) {
-  await page.goto('/');
-  await expect(page.locator('.model-thumbnail img')).toHaveCount(3);
-  if (!(await page.getByRole('complementary').isVisible())) await page.getByRole('button', { name: 'Toggle component library' }).click();
-  await page.locator('.scene-item').filter({ hasText: 'Breadboard' }).click();
-  const close = page.getByRole('complementary').getByRole('button', { name: 'Close component library' });
-  if (await close.isVisible()) await close.click();
-  await page.getByRole('button', { name: 'Top', exact: true }).click();
-  await page.getByRole('button', { name: 'Focus selected component' }).click();
-  const bytes = await readFile(new URL('../../models/breadboard.glb', import.meta.url));
-  const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
-  const asset = prepareModel(gltf.scene, { id: 'breadboard', label: '', description: '', url: '', scale: 0.1, rotation: [0, 0, 0] });
-  const board = createDemo(Math.max(asset.size.x, asset.size.z))[0];
-  const canvas = (await page.locator('canvas').boundingBox())!;
-  const bounds = new Box3().setFromObject(asset.object).translate(new Vector3(board.position[0], 0, board.position[1])).expandByScalar(0.0005);
-  const camera = new PerspectiveCamera(38, canvas.width / canvas.height, 0.00001, 100);
-  const center = bounds.getCenter(new Vector3());
-  const fov = 38 * Math.PI / 180;
-  const distance = bounds.getSize(new Vector3()).length() / 2 / Math.sin(Math.min(fov, 2 * Math.atan(Math.tan(fov / 2) * camera.aspect)) / 2) * 1.18;
-  camera.position.copy(center).addScaledVector(new Vector3(0, 1, 0.0001).normalize(), distance); camera.lookAt(center); camera.updateMatrixWorld(true);
-  const project = (point: Point3) => { const p = new Vector3(...localToWorld(board, point)).project(camera); return { x: canvas.x + (p.x + 1) / 2 * canvas.width, y: canvas.y + (1 - p.y) / 2 * canvas.height }; };
-  const socket = (id: string) => project(socketById(asset.sockets!, id)!.position);
-  const click = async (id: string) => { const p = socket(id); await page.mouse.click(p.x, p.y); };
-  const hover = async (id: string) => { const p = socket(id); await page.mouse.move(p.x, p.y); };
-  return { project, socket, click, hover, surface: asset.sockets![0].position[1], asset, board, canvas };
-}
 
 test('draw, edit, recolor and delete wires; stationary right-click differs from pan', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
@@ -96,8 +67,8 @@ test('LED insertion, occupied sockets, polarity flip, relocation, detachment and
   await board.click('top-positive-10');
   await expect(page.locator('.placement-banner')).toBeVisible();
   await expect(page.locator('.connection-message')).toContainText('not rails');
-  await board.click('e30');
-  await expect(page.locator('.connection-message')).toContainText('past column 30');
+  await board.click('e63');
+  await expect(page.locator('.connection-message')).toContainText('past the last column');
   await board.hover('e10');
   await expect(page.locator('.socket-label')).toContainText('+ e11');
   await board.click('e10');
@@ -147,11 +118,11 @@ test('cross-board route and mounted LED follow board edits and clean up on delet
   for (const label of ['Bench DC Power Supply', 'LED']) {
     await page.locator('.scene-item').filter({ hasText: label }).click(); await page.keyboard.press('Delete');
   }
-  await page.locator('.model-card').filter({ hasText: 'Breadboard' }).getByRole('button', { name: 'Add at view center' }).click();
-  for (let i = 0; i < 14; i++) await page.keyboard.press('ArrowRight');
-  const spacing = setup.asset.size.x / 10;
+  await page.locator('.model-card').filter({ hasText: 'Full-Size Breadboard' }).getByRole('button', { name: 'Add at view center' }).click();
+  for (let i = 0; i < 24; i++) await page.keyboard.press('ArrowRight');
+  const spacing = 0.0084;
   const second = { ...setup.board, id: 'second', position: snapPosition(setup.board.position, spacing, true) };
-  second.position[0] += 14 * spacing;
+  second.position[0] += 24 * spacing;
   const bounds = new Box3();
   for (const instance of [setup.board, second]) bounds.union(new Box3().setFromObject(setup.asset.object).translate(new Vector3(instance.position[0], 0, instance.position[1])));
   bounds.expandByScalar(0.0005);

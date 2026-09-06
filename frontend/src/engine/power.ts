@@ -1,4 +1,5 @@
-import type { Layout, SocketDefinition, TerminalDefinition } from '../types/workspace';
+import type { Layout, SocketSource, TerminalDefinition } from '../types/workspace';
+import { socketsFor } from './breadboard';
 import { terminalKey } from './connections';
 
 export type SupplyStatus = 'off' | 'on' | 'short-circuit' | 'multiple-supplies';
@@ -36,12 +37,12 @@ class Groups {
 
 // Conducting groups exclude LED junctions. Circuit membership includes LEDs only
 // to detect connected sources; LEDs never short positive and negative nets together.
-export function evaluatePower(layout: Layout, sockets: SocketDefinition[], powerTerminals: TerminalDefinition[]): PowerResult {
+export function evaluatePower(layout: Layout, sockets: SocketSource, powerTerminals: TerminalDefinition[]): PowerResult {
   const nets = new Groups();
   const keys: string[] = [];
   const available = new Set<string>();
   for (const instance of layout.instances) {
-    const definitions = instance.modelId === 'breadboard' ? sockets : instance.modelId === 'power' ? powerTerminals : [];
+    const definitions = instance.modelId === 'power' ? powerTerminals : socketsFor(instance, sockets);
     for (const terminal of definitions) {
       const key = terminalKey({ componentId: instance.id, terminalId: terminal.id });
       keys.push(key); available.add(key); nets.find(key);
@@ -51,6 +52,12 @@ export function evaluatePower(layout: Layout, sockets: SocketDefinition[], power
   for (const wire of layout.wires) {
     const from = terminalKey(wire.from), to = terminalKey(wire.to);
     if (available.has(from) && available.has(to)) nets.join(from, to);
+  }
+  for (const instance of layout.instances) if (instance.modelId === 'slide-switch' && instance.switchMount) {
+    const { breadboardId, pins } = instance.switchMount;
+    const contact = instance.switchPosition === 'right' ? pins[2] : pins[0];
+    const common = `${breadboardId}:${pins[1]}`, selected = `${breadboardId}:${contact}`;
+    if (available.has(common) && available.has(selected)) nets.join(common, selected);
   }
   const supplies = layout.instances.filter(instance => instance.modelId === 'power').map(instance => ({
     id: instance.id,

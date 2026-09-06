@@ -7,12 +7,12 @@ import type { OrbitControls } from 'three-stdlib';
 import type { ComponentInstance, GroundPosition, MountCandidate, Point3, TerminalRef } from '../types/workspace';
 import type { Workspace } from '../store/useWorkspace';
 import { snapPosition } from '../lib/placement';
-import { mountPosition, SOCKET_PITCH, socketById, worldToLocal } from '../engine/breadboard';
-import { mountError } from '../engine/connections';
+import { isBreadboard, isMountable, mountPosition, switchMountPosition, socketsFor, SOCKET_PITCH, socketById, worldToLocal } from '../engine/breadboard';
+import { mountError, switchMountError } from '../engine/connections';
 import { wirePoints } from '../lib/wireGeometry';
 import { routingSurface } from '../engine/terminals';
 
-type Feedback = { preview: ComponentInstance | null; candidate: MountCandidate | null; hover: TerminalRef | null; hiddenId?: string };
+type Feedback = { preview: ComponentInstance | null; candidate: MountCandidate | null; hover: TerminalRef | null; hiddenId?: string; hoverSwitch?: string };
 type Hit = { id: string; point: Vector3; distance: number; bendIndex?: number };
 export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject<OrbitControls | null>) {
   const { camera, gl, scene, invalidate } = useThree();
@@ -51,19 +51,20 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
     };
     const boardAtPointer = () => {
       const current = latest.current;
-      if (current.assets.breadboard.status !== 'ready') return null;
-      const y = current.sockets[0].position[1];
-      const point = onPlane(y);
-      if (!point) return null;
-      const size = current.assets.breadboard.asset.size;
       for (const board of [...current.instances].reverse()) {
-        if (board.modelId !== 'breadboard') continue;
+        if (!isBreadboard(board.modelId)) continue;
+        const asset = current.assets[board.modelId];
+        if (asset.status !== 'ready') continue;
+        const sockets = socketsFor(board, current.sockets);
+        const point = onPlane(sockets[0].position[1]);
+        if (!point) continue;
+        const size = asset.asset.size;
         const local = worldToLocal(board, point.toArray());
         if (Math.abs(local[0]) < size.x / 2 && Math.abs(local[2]) < size.z / 2) return { board, local, point };
       }
       return null;
     };
-    const powerHit = (): { id: string; terminalId?: string; switchClick: boolean } | null => {
+    const interactivePartHit = (): { id: string; terminalId?: string; switchClick: boolean } | null => {
       const group = scene.getObjectByName('placed-components');
       if (!group) return null;
       for (const intersection of raycaster.intersectObject(group, true)) {
@@ -74,44 +75,54 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
           visible = visible && object.visible;
           if (typeof object.userData.instanceId === 'string') id = object.userData.instanceId;
           if (typeof object.userData.terminalId === 'string') terminalId = object.userData.terminalId;
-          switchClick = switchClick || object.userData.powerSwitch === true;
+          switchClick = switchClick || (object.userData.powerSwitch === true || object.userData.slideSwitch === true);
           object = object.parent;
         }
         if (!visible) continue;
         // The first real surface occludes parts behind it; invisible selection
         // boxes must not intercept the terminal or rocker meshes.
-        return id && latest.current.instances.some(instance => instance.id === id && instance.modelId === 'power') ? { id, terminalId, switchClick } : null;
+        return id && latest.current.instances.some(instance => instance.id === id && (instance.modelId === 'power' || instance.modelId === 'slide-switch')) ? { id, terminalId, switchClick } : null;
       }
       return null;
     };
     const socketHit = (): TerminalRef | null => {
-      const power = powerHit();
+      const power = interactivePartHit();
       if (power?.terminalId) return { componentId: power.id, terminalId: power.terminalId };
       const boardHit = boardAtPointer();
       if (!boardHit) return null;
       const obstruction = hit('placed-components', 'instanceId');
       if (obstruction && obstruction.id !== boardHit.board.id && obstruction.distance < raycaster.ray.origin.distanceTo(boardHit.point) - 0.0001) return null;
-      const nearest = latest.current.sockets.find(socket => Math.hypot(socket.position[0] - boardHit.local[0], socket.position[2] - boardHit.local[2]) < 0.0011);
+      const nearest = socketsFor(boardHit.board, latest.current.sockets).find(socket => Math.hypot(socket.position[0] - boardHit.local[0], socket.position[2] - boardHit.local[2]) < 0.0011);
       return nearest ? { componentId: boardHit.board.id, terminalId: nearest.id } : null;
     };
     const mountCandidate = (ignoreId?: string): MountCandidate | null => {
       const boardHit = boardAtPointer();
       if (!boardHit) return null;
       const current = latest.current;
-      const nearest = [...current.sockets].sort((a, b) => Math.hypot(a.position[0] - boardHit.local[0], a.position[2] - boardHit.local[2]) - Math.hypot(b.position[0] - boardHit.local[0], b.position[2] - boardHit.local[2]))[0];
-      if (!nearest.row) return { mount: null, valid: false, reason: 'LEDs use terminal holes, not rails' };
+      const definitions = socketsFor(boardHit.board, current.sockets);
+      const nearest = [...definitions].sort((a, b) => Math.hypot(a.position[0] - boardHit.local[0], a.position[2] - boardHit.local[2]) - Math.hypot(b.position[0] - boardHit.local[0], b.position[2] - boardHit.local[2]))[0];
+      if (!nearest.row) return { mount: null, valid: false, reason: 'Use terminal holes, not rails' };
       if (Math.hypot(nearest.position[0] - boardHit.local[0], nearest.position[2] - boardHit.local[2]) > SOCKET_PITCH * 0.72) return { mount: null, valid: false, reason: 'Move onto a terminal strip; the trench is not a socket' };
       const previous = current.instances.find(instance => instance.id === ignoreId);
-      const flipped = current.mode.kind === 'component-placement' ? current.mode.flipped : previous?.mount ? socketById(current.sockets, previous.mount.anode)!.column! < socketById(current.sockets, previous.mount.cathode)!.column! : Math.cos(previous?.rotation ?? 0) < 0;
+      const previousBoard = current.instances.find(instance => instance.id === (previous?.mount?.breadboardId ?? previous?.switchMount?.breadboardId));
+      const previousSockets = socketsFor(previousBoard, current.sockets);
+      const flipped = current.mode.kind === 'component-placement' ? current.mode.flipped : previous?.switchMount ? socketById(previousSockets, previous.switchMount.pins[0])!.column! > socketById(previousSockets, previous.switchMount.pins[2])!.column! : previous?.mount ? socketById(previousSockets, previous.mount.anode)!.column! < socketById(previousSockets, previous.mount.cathode)!.column! : Math.cos(previous?.rotation ?? 0) < 0;
+      if ((current.placing ?? previous?.modelId) === 'slide-switch') {
+        const pins: [string, string, string] = [nearest.id, `${nearest.row}${nearest.column! + 1}`, `${nearest.row}${nearest.column! + 2}`];
+        if (flipped) pins.reverse();
+        const switchMount = { breadboardId: boardHit.board.id, pins };
+        const error = switchMountError(current, switchMount, current.sockets, ignoreId);
+        return { mount: null, switchMount, valid: !error, reason: error ?? `1: ${pins[0]} / 2 common: ${pins[1]} / 3: ${pins[2]}` };
+      }
       const next = `${nearest.row}${nearest.column! + 1}`;
       const mount = { breadboardId: boardHit.board.id, anode: flipped ? nearest.id : next, cathode: flipped ? next : nearest.id };
-      const error = nearest.column === 30 ? 'The pair extends past column 30' : mountError(current, mount, current.sockets, ignoreId);
+      const error = !socketById(definitions, next) ? 'The pair extends past the last column' : mountError(current, mount, current.sockets, ignoreId);
       return { mount, valid: !error, reason: error ?? `Anode + ${mount.anode} / Cathode − ${mount.cathode}` };
     };
     const snappedBend = (board: ComponentInstance, point: Vector3): Point3 => {
       const local = worldToLocal(board, point.toArray());
       if (latest.current.snap) {
-        const origin = board.modelId === 'breadboard' ? latest.current.sockets[0].position : [0, 0, 0];
+        const origin = socketsFor(board, latest.current.sockets)[0]?.position ?? [0, 0, 0];
         local[0] = origin[0] + Math.round((local[0] - origin[0]) / SOCKET_PITCH) * SOCKET_PITCH;
         local[2] = origin[2] + Math.round((local[2] - origin[2]) / SOCKET_PITCH) * SOCKET_PITCH;
       }
@@ -126,17 +137,18 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         setFeedback({ preview: null, candidate: null, hover: socketHit() });
         return;
       }
-      const draggingLed = drag && current.instances.find(instance => instance.id === drag!.id)?.modelId === 'led' && drag.moved;
-      if (current.placing || draggingLed) {
+      const dragged = drag ? current.instances.find(instance => instance.id === drag!.id) : undefined;
+      const draggingMountable = drag && dragged && isMountable(dragged.modelId) && drag.moved;
+      if (current.placing || draggingMountable) {
         const ground = onPlane();
-        const modelId = current.placing ?? 'led';
-        const candidate = modelId === 'led' ? mountCandidate(draggingLed ? drag!.id : undefined) : null;
-        const position = ground ? snapPosition([ground.x + (draggingLed ? drag!.offset[0] : 0), ground.z + (draggingLed ? drag!.offset[1] : 0)], current.spacing, current.snap) : [0, 0] as GroundPosition;
-        const rotation = draggingLed ? current.instances.find(instance => instance.id === drag!.id)!.rotation : current.mode.kind === 'component-placement' && current.mode.flipped ? Math.PI : 0;
-        const preview: ComponentInstance | null = ground ? { id: 'preview', modelId, position, rotation, mount: candidate?.valid ? candidate.mount! : undefined } : null;
-        dropFeedback = { preview, candidate, hover: null, hiddenId: draggingLed ? drag!.id : undefined };
+        const modelId = current.placing ?? dragged!.modelId;
+        const candidate = isMountable(modelId) ? mountCandidate(draggingMountable ? drag!.id : undefined) : null;
+        const position = ground ? snapPosition([ground.x + (draggingMountable ? drag!.offset[0] : 0), ground.z + (draggingMountable ? drag!.offset[1] : 0)], current.spacing, current.snap) : [0, 0] as GroundPosition;
+        const rotation = draggingMountable ? current.instances.find(instance => instance.id === drag!.id)!.rotation : current.mode.kind === 'component-placement' && current.mode.flipped ? Math.PI : 0;
+        const preview: ComponentInstance | null = ground ? { id: 'preview', modelId, position, rotation, switchPosition: dragged?.switchPosition, switchMount: candidate?.valid ? candidate.switchMount : undefined, mount: candidate?.valid ? candidate.mount ?? undefined : undefined } : null;
+        dropFeedback = { preview, candidate, hover: null, hiddenId: draggingMountable ? drag!.id : undefined };
         setFeedback(dropFeedback);
-      } else setFeedback({ preview: null, candidate: null, hover: socketHit() });
+      } else { const part = interactivePartHit(); setFeedback({ preview: null, candidate: null, hover: socketHit(), hoverSwitch: part?.switchClick ? part.id : undefined }); }
     };
     refreshPreview.current = updatePreview;
     const finish = () => {
@@ -157,11 +169,11 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       if (current.placing) {
         stop(event); updatePreview();
         if (dropFeedback?.candidate && !dropFeedback.candidate.valid) { current.setMessage(dropFeedback.candidate.reason); return; }
-        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount);
+        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount, dropFeedback.preview.switchMount);
         setFeedback({ preview: null, candidate: null, hover: null }); return;
       }
       const handle = hit('wire-handles', 'wireId');
-      const switchPart = powerHit();
+      const switchPart = interactivePartHit();
       const socket = socketHit();
       const wire = handle ?? (socket || switchPart?.switchClick ? null : hit('placed-wires', 'wireId'));
       if (wire) {
@@ -173,11 +185,11 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         }
       } else if (socket) { stop(event); current.beginWire(socket); return; }
       else {
-        const component = hit('placed-components', 'instanceId'); const ground = onPlane();
+        const component = switchPart?.switchClick ? { id: switchPart.id } : hit('placed-components', 'instanceId'); const ground = onPlane();
         if (!component || !ground) { emptyDown = { x: event.clientX, y: event.clientY }; return; }
         stop(event); current.select(component.id);
         const instance = current.instances.find(item => item.id === component.id)!;
-        const mount = instance.mount ? mountPosition(instance.mount, current.instances, current.sockets) : null;
+        const mount = instance.switchMount ? switchMountPosition(instance.switchMount, current.instances, current.sockets) : instance.mount ? mountPosition(instance.mount, current.instances, current.sockets) : null;
         const position = mount ? [mount.position[0], mount.position[2]] : instance.position;
         drag = { id: component.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, offset: [position[0] - ground.x, position[1] - ground.z], moved: false, switchClick: switchPart?.id === component.id && switchPart.switchClick };
       }
@@ -197,7 +209,7 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         } else {
           const instance = current.instances.find(item => item.id === drag!.id);
           if (!instance) { finish(); return; }
-          if (instance?.modelId === 'led') { current.setMode({ kind: 'led-mounting', componentId: instance.id }); updatePreview(); }
+          if (isMountable(instance.modelId)) { current.setMode({ kind: 'component-mounting', componentId: instance.id }); updatePreview(); }
           else { const point = onPlane(); if (point) current.move(drag.id, [point.x + drag.offset[0], point.z + drag.offset[1]]); current.setMode({ kind: 'component-dragging', componentId: drag.id }); }
         }
       } else { updatePreview(); canvas.style.cursor = current.draft || current.placing || socketHit() || hit('placed-wires', 'wireId') || hit('placed-components', 'instanceId') ? 'pointer' : 'grab'; }
@@ -229,13 +241,17 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       }
       if (event.button !== 0 || (drag && event.pointerId !== drag.pointerId)) return;
       if (drag?.switchClick && !drag.moved) {
-        const part = powerHit();
-        if (part?.id === drag.id && part.switchClick) current.togglePower(drag.id);
+        const part = interactivePartHit();
+        if (part?.id === drag.id && part.switchClick) {
+          if (current.instances.find(instance => instance.id === drag!.id)?.modelId === 'slide-switch') current.toggleSwitch(drag.id);
+          else current.togglePower(drag.id);
+        }
       }
-      if (drag?.moved && drag.bendIndex === undefined && current.instances.find(item => item.id === drag!.id)?.modelId === 'led') {
+      if (drag?.moved && drag.bendIndex === undefined && current.instances.some(item => item.id === drag!.id && isMountable(item.modelId))) {
         updatePreview();
         if (dropFeedback?.candidate) {
-          if (dropFeedback.candidate.valid && dropFeedback.candidate.mount) current.attach(drag.id, dropFeedback.candidate.mount);
+          if (dropFeedback.candidate.valid && dropFeedback.candidate.switchMount) current.attachSwitch(drag.id, dropFeedback.candidate.switchMount);
+          else if (dropFeedback.candidate.valid && dropFeedback.candidate.mount) current.attach(drag.id, dropFeedback.candidate.mount);
           else current.setMessage(dropFeedback.candidate.reason);
         } else if (dropFeedback?.preview) current.detach(drag.id, dropFeedback.preview.position);
       }

@@ -3,7 +3,7 @@ import { Html } from '@react-three/drei';
 import { Color, InstancedMesh, Matrix4, Vector3 } from 'three';
 import type { Workspace } from '../../store/useWorkspace';
 import type { MountCandidate, Point3, TerminalRef } from '../../types/workspace';
-import { localToWorld, socketById, WIRE_COLORS } from '../../engine/breadboard';
+import { localToWorld, socketById, socketsFor, switchMountPosition, WIRE_COLORS } from '../../engine/breadboard';
 import { canConnect, occupiedSockets, terminalKey } from '../../engine/connections';
 import { terminalLead, terminalPosition, wirePoints } from '../../lib/wireGeometry';
 import { Wire } from './Wire';
@@ -33,19 +33,21 @@ export function Connections({ workspace }: { workspace: Workspace }) {
   </>;
 }
 
-export function SocketFeedback({ workspace, hover, candidate }: { workspace: Workspace; hover: TerminalRef | null; candidate: MountCandidate | null }) {
+export function SocketFeedback({ workspace, hover, candidate, hoverSwitch }: { workspace: Workspace; hover: TerminalRef | null; candidate: MountCandidate | null; hoverSwitch?: string }) {
   const mesh = useRef<InstancedMesh>(null);
   const occupied = occupiedSockets(workspace);
   const rings = useMemo(() => {
     const points: { point: Point3; color: string }[] = [];
     if (hover) {
       const board = workspace.instances.find(instance => instance.id === hover.componentId);
-      const socket = socketById(workspace.sockets, hover.terminalId);
-      if (board && socket) for (const member of workspace.sockets.filter(item => item.groupId === socket.groupId)) points.push({ point: localToWorld(board, member.position), color: member.id === socket.id ? '#1672f3' : '#94baf0' });
+      const definitions = socketsFor(board, workspace.sockets);
+      const socket = socketById(definitions, hover.terminalId);
+      if (board && socket) for (const member of definitions.filter(item => item.groupId === socket.groupId)) points.push({ point: localToWorld(board, member.position), color: member.id === socket.id ? '#1672f3' : '#94baf0' });
     }
-    if (candidate?.mount) {
-      const board = workspace.instances.find(instance => instance.id === candidate.mount!.breadboardId);
-      if (board) for (const id of [candidate.mount.anode, candidate.mount.cathode]) { const socket = socketById(workspace.sockets, id); if (socket) points.push({ point: localToWorld(board, socket.position), color: candidate.valid ? '#16a36a' : '#e34646' }); }
+    if (candidate?.mount || candidate?.switchMount) {
+      const board = workspace.instances.find(instance => instance.id === (candidate.mount?.breadboardId ?? candidate.switchMount?.breadboardId));
+      const ids = candidate.switchMount?.pins ?? [candidate.mount!.anode, candidate.mount!.cathode];
+      if (board) for (const id of ids) { const socket = socketById(socketsFor(board, workspace.sockets), id); if (socket) points.push({ point: localToWorld(board, socket.position), color: candidate.valid ? '#16a36a' : '#e34646' }); }
     }
     return points;
   }, [workspace.instances, workspace.sockets, hover, candidate]);
@@ -60,10 +62,14 @@ export function SocketFeedback({ workspace, hover, candidate }: { workspace: Wor
     if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true;
     mesh.current.computeBoundingSphere();
   }, [rings]);
+  const hoveredSwitch = workspace.instances.find(instance => instance.id === hoverSwitch && instance.modelId === 'slide-switch');
+  const switchPose = hoveredSwitch?.switchMount ? switchMountPosition(hoveredSwitch.switchMount, workspace.instances, workspace.sockets) : null;
+  const commonStatus = hoveredSwitch?.switchMount ? workspace.power.terminals[`${hoveredSwitch.switchMount.breadboardId}:${hoveredSwitch.switchMount.pins[1]}`] ?? 'unconnected' : 'unconnected';
   const position = hover ? terminalPosition(hover, workspace.instances, workspace.sockets, workspace.powerTerminals) : rings[0]?.point;
   const powerHover = hover && workspace.instances.find(instance => instance.id === hover.componentId)?.modelId === 'power';
   const hoverStatus = hover ? workspace.power.terminals[terminalKey(hover)] ?? 'unconnected' : 'unconnected';
   return <>
+    {hoveredSwitch && <Html position={switchPose ? [switchPose.position[0], switchPose.position[1] + 0.015, switchPose.position[2]] : [hoveredSwitch.position[0], 0.015, hoveredSwitch.position[1]]} center style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}><span className="socket-label">{hoveredSwitch.switchPosition === 'right' ? '2 ↔ 3' : '1 ↔ 2'} · Common: {terminalStatusLabels[commonStatus]}</span></Html>}
     <instancedMesh ref={mesh} args={[undefined, undefined, 30]} raycast={() => null}>
       <ringGeometry args={[0.00055, 0.001, 16]} /><meshBasicMaterial depthTest={false} transparent opacity={0.8} />
     </instancedMesh>
