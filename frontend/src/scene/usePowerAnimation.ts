@@ -11,7 +11,7 @@ function subscribe(listener: () => void) {
 }
 const reducedMotion = () => window.matchMedia(query).matches;
 
-export function usePowerAnimation(visuals: PowerVisuals | null, switchOn: boolean, lightOn: boolean, duration = 180) {
+export function usePowerAnimation(visuals: PowerVisuals | null, switchOn: boolean, lightOn: number, duration = 180) {
   const { invalidate } = useThree();
   const reduced = useSyncExternalStore(subscribe, reducedMotion, () => false);
   // Recreated render nodes (for example after a mount drag) start at their

@@ -11,7 +11,7 @@ import type { LoadedAsset, ModelId, Point3 } from '../../src/types/workspace';
 
 export async function powerView(page: Page, focusPower = false) {
   await page.goto('/');
-  await expect(page.locator('.model-thumbnail img')).toHaveCount(5);
+  await expect(page.locator('.model-thumbnail img')).toHaveCount(6);
   const models = {} as Record<ModelId, LoadedAsset>;
   for (const id of ['breadboard', 'breadboard-large', 'power', 'led'] as const) {
     const bytes = await readFile(new URL(`../../../models/${id}.glb`, import.meta.url));
@@ -47,4 +47,3 @@ export async function powerView(page: Page, focusPower = false) {
   const switchPoint = project('power', new Box3().setFromObject(models.power.object.getObjectByName('Power_Switch')!).getCenter(new Vector3()).toArray());
   return { click, terminal, switchPoint };
 }
-

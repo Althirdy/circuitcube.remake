@@ -1,6 +1,7 @@
 import type { ModelDefinition } from "../types/workspace";
 
 export const modelCatalog: ModelDefinition[] = [
+  { id: 'resistor', label: 'Resistor', description: '330 Ω default · ¼ W · ±5%', url: `${import.meta.env?.BASE_URL ?? '/'}models/resistors.glb`, scale: 1, rotation: [Math.PI / 2, 0, 0] },
   { id: 'breadboard-large', label: 'Full-Size Breadboard', description: '830 tie-point · split power rails', url: `${import.meta.env?.BASE_URL ?? '/'}models/breadboard-large.glb`, scale: 0.1, rotation: [0, 0, 0] },
   {
     id: "breadboard",

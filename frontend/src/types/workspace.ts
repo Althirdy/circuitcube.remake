@@ -1,7 +1,7 @@
 import type { Group, Vector3 } from "three";
 
 export type BoardModelId = "breadboard" | "breadboard-large";
-export type ModelId = BoardModelId | "power" | "led" | "slide-switch";
+export type ModelId = BoardModelId | "power" | "led" | "slide-switch" | "resistor";
 export type SocketSource = SocketDefinition[] | Record<BoardModelId, SocketDefinition[]>;
 export type GroundPosition = [number, number];
 export type Point3 = [number, number, number];
@@ -18,6 +18,7 @@ export type SocketDefinition = TerminalDefinition & {
 export type TerminalRef = { componentId: string; terminalId: string };
 export type LedMount = { breadboardId: string; anode: string; cathode: string };
 export type SwitchMount = { breadboardId: string; pins: [string, string, string] };
+export type ResistorMount = { breadboardId: string; pins: [string, string] };
 export type WireColor = "black" | "red" | "blue" | "green" | "yellow" | "orange";
 export type WireInstance = { id: string; from: TerminalRef; to: TerminalRef; color: WireColor; bends: Point3[]; height: number };
 export type Layout = { instances: ComponentInstance[]; wires: WireInstance[] };
@@ -30,7 +31,7 @@ export type InteractionMode =
   | { kind: "component-dragging"; componentId: string }
   | { kind: "wire-drawing"; draft: WireDraft }
   | { kind: "bend-editing"; wireId: string; index: number };
-export type MountCandidate = { mount: LedMount | null; switchMount?: SwitchMount; valid: boolean; reason: string };
+export type MountCandidate = { mount: LedMount | null; switchMount?: SwitchMount; resistorMount?: ResistorMount; valid: boolean; reason: string };
 export type WireContextMenu = { x: number; y: number; wireId: string; point: Point3; insertIndex: number; bendIndex?: number };
 export type ComponentInstance = {
   id: string;
@@ -41,6 +42,11 @@ export type ComponentInstance = {
   switchMount?: SwitchMount;
   switchPosition?: 'left' | 'right';
   outputEnabled?: boolean;
+  voltage?: number;
+  resistanceOhms?: number;
+  tolerancePercent?: number;
+  powerRatingWatts?: number;
+  resistorMount?: ResistorMount;
 };
 export type ModelDefinition = {
   id: ModelId;

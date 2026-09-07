@@ -143,7 +143,7 @@ export function ComponentLibrary({
         <span className="note-dot" />
         Click a socket or supply terminal to wire it.
         <br />
-        <span>Logical power · no voltage or current calculations.</span>
+        <span>Series DC · resistors limit LED current.</span>
       </div>
       {workspace.wires.length > 0 && <div className="scene-list wire-list">
         <div className="scene-list-heading"><span className="eyebrow">JUMPER WIRES</span><span>{workspace.wires.length}</span></div>

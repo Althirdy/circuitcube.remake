@@ -10,7 +10,7 @@ import type { Point3 } from '../../src/types/workspace';
 
 export async function focusBoard(page: Page) {
   await page.goto('/');
-  await expect(page.locator('.model-thumbnail img')).toHaveCount(5);
+  await expect(page.locator('.model-thumbnail img')).toHaveCount(6);
   if (!(await page.getByRole('complementary').isVisible())) await page.getByRole('button', { name: 'Toggle component library' }).click();
   await page.locator('.scene-item').filter({ hasText: 'Full-Size Breadboard' }).click();
   const close = page.getByRole('complementary').getByRole('button', { name: 'Close component library' });
@@ -35,4 +35,3 @@ export async function focusBoard(page: Page) {
   const worldProject = (point: Point3) => { const p = new Vector3(...point).project(camera); return { x: canvas.x + (p.x + 1) / 2 * canvas.width, y: canvas.y + (1 - p.y) / 2 * canvas.height }; };
   return { worldProject, project, socket, click, hover, surface: asset.sockets![0].position[1], asset, board, canvas };
 }
-

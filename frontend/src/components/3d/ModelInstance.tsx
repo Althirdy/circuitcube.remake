@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { Edges } from "@react-three/drei";
 import { Box3, Mesh, MeshStandardMaterial, Vector3 } from "three";
+import { useThree } from '@react-three/fiber';
+import { createResistorVisuals } from '../../lib/resistorVisuals';
+import { DEFAULT_RESISTANCE, DEFAULT_VOLTAGE } from '../../engine/resistor';
 import type { ThreeEvent } from "@react-three/fiber";
 import type { ComponentInstance, LoadedAsset, SocketSource } from "../../types/workspace";
 import { componentPose, seatLedPins } from '../../lib/componentPose';
@@ -18,6 +21,7 @@ type Props = {
   instances?: ComponentInstance[];
   sockets?: SocketSource;
   powered?: boolean;
+  brightness?: number;
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
 };
 
@@ -30,12 +34,14 @@ export function ModelInstance({
   instances = [],
   sockets = [],
   powered = false,
+  brightness = 0,
   onPointerDown,
 }: Props) {
+  const invalidate = useThree(state => state.invalidate);
   const mounted = !!instance.mount;
   const modelId = instance.modelId;
   const previewSwitchRight = !!preview && instance.switchPosition === 'right';
-  const { object, material, bounds, visuals } = useMemo(() => {
+  const { object, material, bounds, visuals, resistorVisuals } = useMemo(() => {
     const object = asset.object.clone(true);
     if (mounted) seatLedPins(object);
     if (preview && modelId === 'slide-switch') createSlideVisuals(object).apply(previewSwitchRight ? 1 : 0, 0);
@@ -51,10 +57,15 @@ export function ModelInstance({
       object.traverse((child) => {
         if (child instanceof Mesh) child.material = material;
       });
-    const visuals = !preview && !isBreadboard(modelId) ? modelId === 'slide-switch' ? createSlideVisuals(object) : createPowerVisuals(object, modelId) : null;
-    return { object, material, bounds: new Box3().setFromObject(object), visuals };
+    const visuals = !preview && !isBreadboard(modelId) && modelId !== 'resistor' ? modelId === 'slide-switch' ? createSlideVisuals(object) : createPowerVisuals(object, modelId) : null;
+    const resistorVisuals = !preview && modelId === 'resistor' ? createResistorVisuals(object) : null;
+    return { object, material, bounds: new Box3().setFromObject(object), visuals, resistorVisuals };
   }, [asset, preview, mounted, invalid, modelId, previewSwitchRight]);
-  usePowerAnimation(visuals, modelId === 'slide-switch' ? instance.switchPosition === 'right' : !!instance.outputEnabled, powered, modelId === 'slide-switch' ? 150 : 180);
+  usePowerAnimation(visuals, modelId === 'slide-switch' ? instance.switchPosition === 'right' : !!instance.outputEnabled, modelId === 'led' ? brightness : Number(powered), modelId === 'slide-switch' ? 150 : 180);
+  const voltage = instance.voltage ?? DEFAULT_VOLTAGE;
+  const resistance = instance.resistanceOhms ?? DEFAULT_RESISTANCE;
+  useEffect(() => { visuals?.setVoltage?.(voltage); resistorVisuals?.apply(resistance); invalidate(); }, [visuals, resistorVisuals, voltage, resistance, invalidate]);
+  useEffect(() => () => resistorVisuals?.dispose(), [resistorVisuals]);
   useEffect(() => () => material?.dispose(), [material]);
   const { x, y, z } = bounds.getSize(new Vector3());
   const center = bounds.getCenter(new Vector3());

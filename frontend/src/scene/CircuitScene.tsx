@@ -8,6 +8,7 @@ import type { Workspace } from "../store/useWorkspace";
 import { AssetLoader } from "./AssetLoader";
 import { CameraRig } from "./CameraRig";
 import { useSceneInteraction } from "./useSceneInteraction";
+import { ElectricalWarnings } from '../components/3d/ElectricalWarnings';
 import { Connections, SocketFeedback } from '../components/3d/Connections';
 
 function Contents({ workspace }: { workspace: Workspace }) {
@@ -55,6 +56,7 @@ function Contents({ workspace }: { workspace: Workspace }) {
                 selected={workspace.selectedId === instance.id}
                 instances={workspace.instances}
                 sockets={workspace.sockets}
+                brightness={workspace.power.components[instance.id]?.brightness ?? 0}
                 powered={instance.modelId === 'power' ? workspace.power.supplies[instance.id] === 'on' : workspace.power.leds[instance.id] === 'on'}
               />
             </group>
@@ -62,6 +64,7 @@ function Contents({ workspace }: { workspace: Workspace }) {
         })}
       </group>
       <Connections workspace={workspace} />
+      <ElectricalWarnings workspace={workspace} />
       <SocketFeedback workspace={workspace} hoverSwitch={feedback.hoverSwitch} hover={feedback.hover} candidate={preview ? feedback.candidate : null} />
       {preview && placementAsset?.status === "ready" && (
         <ModelInstance

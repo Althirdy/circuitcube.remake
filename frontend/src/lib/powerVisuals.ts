@@ -7,7 +7,9 @@ export function transitionValue(from: number, to: number, elapsed: number, durat
   return from + (to - from) * progress * progress * (3 - 2 * progress);
 }
 
-export function createPowerVisuals(object: Group, modelId: ModelId) {
+export type PowerVisuals = { apply: (switchAmount: number, lightAmount: number) => void; dispose: () => void; setVoltage?: (voltage: number) => void };
+
+export function createPowerVisuals(object: Group, modelId: ModelId): PowerVisuals {
   const materials = new Set<Material>();
   const ledMaterials: MeshStandardMaterial[] = [];
   const clones = new Map<Material, Material>();
@@ -31,15 +33,20 @@ export function createPowerVisuals(object: Group, modelId: ModelId) {
   const restRotation = rocker?.rotation.x ?? 0;
   let display: Mesh<PlaneGeometry, MeshBasicMaterial> | undefined;
   let texture: CanvasTexture | undefined;
+  let setVoltage: ((voltage: number) => void) | undefined;
   const glass = modelId === 'power' ? object.getObjectByName('Display_Glass') : undefined;
   if (glass && typeof document !== 'undefined') {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 96;
     const context = canvas.getContext('2d');
     if (context) {
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = '#9affbc'; context.font = 'bold 76px monospace';
-      context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText('ON', 128, 49);
       texture = new CanvasTexture(canvas); texture.colorSpace = SRGBColorSpace;
+      setVoltage = voltage => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = '#9affbc'; context.font = 'bold 62px monospace';
+        context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText(`${voltage.toFixed(1)} V`, 128, 49);
+        texture!.needsUpdate = true;
+      };
+      setVoltage(5);
       const bounds = new Box3().setFromObject(glass), size = bounds.getSize(new Vector3());
       const material = new MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
       display = new Mesh(new PlaneGeometry(size.x * 0.8, size.y * 0.8), material);
@@ -56,7 +63,7 @@ export function createPowerVisuals(object: Group, modelId: ModelId) {
   apply(0, 0);
   return {
     apply,
+    setVoltage,
     dispose: () => { display?.geometry.dispose(); texture?.dispose(); for (const material of materials) material.dispose(); },
   };
 }
-export type PowerVisuals = ReturnType<typeof createPowerVisuals>;

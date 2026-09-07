@@ -24,6 +24,7 @@ export function createDemo(width: number, supplyWidth = 0.2, ledWidth = 0.0058):
       id: "demo-power",
       modelId: "power",
       outputEnabled: false,
+      voltage: 5,
       position: [-width / 2 - supplyWidth / 2 - 0.02, 0],
       rotation: 0,
     },

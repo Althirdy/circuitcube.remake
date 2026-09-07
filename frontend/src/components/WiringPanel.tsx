@@ -1,11 +1,18 @@
 import type { Workspace } from '../store/useWorkspace';
 import type { WireColor } from '../types/workspace';
+import { modelLabel } from '../lib/modelCatalog';
+import { currentLabel, voltageLabel } from '../lib/electricalFormatting';
 import { WIRE_COLORS } from '../engine/breadboard';
 import { routingSurface, terminalLabel } from '../engine/terminals';
 
 export function WiringPanel({ workspace }: { workspace: Workspace }) {
   const { selection, draft, contextMenu } = workspace;
   const wire = selection && selection.kind !== 'component' ? workspace.wires.find(item => item.id === selection.id) : null;
+  const reading = wire ? workspace.power.wires[wire.id] : null;
+  const endpointLabel = (ref: { componentId: string; terminalId: string }) => {
+    const instance = workspace.instances.find(item => item.id === ref.componentId);
+    return `${instance ? modelLabel(instance.modelId) : 'Component'} ${workspace.instances.findIndex(item => item.id === ref.componentId) + 1} · ${terminalLabel(ref.terminalId)}`;
+  };
   const selectedBend = selection?.kind === 'bend' ? selection.index : undefined;
   const height = wire ? selectedBend === undefined ? wire.height * 1000 : (wire.bends[selectedBend][1] - routingSurface(wire.from, workspace.instances, workspace.sockets)) * 1000 : workspace.height;
   const from = draft?.from ?? wire?.from;
@@ -13,6 +20,15 @@ export function WiringPanel({ workspace }: { workspace: Workspace }) {
   return <>
     {(draft || wire) && <section className="wiring-panel" aria-label="Wire properties">
       <div className="wiring-heading"><strong>{draft ? 'Drawing wire' : selectedBend === undefined ? 'Jumper wire' : `Bend ${selectedBend + 1}`}</strong><span>{draft ? `${terminalLabel(draft.from.terminalId)} → …` : `${terminalLabel(wire!.from.terminalId)} → ${terminalLabel(wire!.to.terminalId)}`}</span></div>
+      {wire && reading && <div className="wire-readings" aria-label="Wire electrical readings">
+        <span>{endpointLabel(wire.from)} → {endpointLabel(wire.to)}</span>
+        <strong>Voltage: {voltageLabel(reading.voltage)}</strong>
+        <small>{reading.supplyId ? `Relative to supply ${workspace.instances.findIndex(instance => instance.id === reading.supplyId) + 1} negative terminal` : 'No available supply reference'}</small>
+        <strong>Current: {currentLabel(reading.current)}</strong>
+        <small>{reading.reason ?? 'Connected · supported series DC circuit'}</small>
+        {reading.currentReason && <small>{reading.currentReason}</small>}
+        {reading.estimatedUnsafe && <small className="component-warning">Estimated unsafe operating values</small>}
+      </div>}
       <div className="wire-colors" aria-label="Wire color">{(Object.keys(WIRE_COLORS) as WireColor[]).map(color => <button key={color} aria-label={`${color} wire`} aria-pressed={(wire?.color ?? workspace.wireColor) === color} title={color} style={{ background: WIRE_COLORS[color] }} onClick={() => workspace.changeColor(color)} />)}</div>
       <label className="wire-height">{draft ? 'Next bend height' : selectedBend === undefined ? 'Route height' : 'Bend height'}<input aria-label="Wire height in millimeters" type="number" min={2} max={30} step={1} value={Math.round(height)} onChange={event => workspace.changeHeight(Number(event.target.value))} /><span>mm</span></label>
       <small className="height-reference">Above {supplySource ? 'workplane' : 'breadboard socket surface'}; connector exits stay attached.</small>

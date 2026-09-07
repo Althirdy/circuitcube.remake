@@ -24,11 +24,12 @@ function circuit(prefix = ''): Layout {
       { id: board, modelId: 'breadboard', position: [0, 0], rotation: 0 },
       { id: supply, modelId: 'power', position: [-0.2, 0], rotation: 0, outputEnabled: true },
       { id: led, modelId: 'led', position: [0, 0], rotation: 0, mount: { breadboardId: board, anode: 'e11', cathode: 'e10' } },
+      { id: `${prefix}resistor`, modelId: 'resistor', position: [0, 0], rotation: 0, resistanceOhms: 330, resistorMount: { breadboardId: board, pins: ['d16', 'd11'] } },
     ],
     wires: [
       wire(`${prefix}positive`, ref(supply, 'positive'), ref(board, 'top-positive-1')),
       wire(`${prefix}negative`, ref(board, 'top-negative-1'), ref(supply, 'negative')),
-      wire(`${prefix}anode`, ref(board, 'top-positive-2'), ref(board, 'a11')),
+      wire(`${prefix}anode`, ref(board, 'top-positive-2'), ref(board, 'a16')),
       wire(`${prefix}cathode`, ref(board, 'top-negative-2'), ref(board, 'a10')),
     ],
   };
@@ -37,7 +38,7 @@ function circuit(prefix = ''): Layout {
 test('a complete polarized circuit lights an LED; open, reversed and disabled circuits do not', () => {
   const layout = circuit();
   expect(evaluatePower(layout, sockets, terminals).leds.led).toBe('on');
-  expect(evaluatePower(layout, sockets, terminals).terminals['board:d11']).toBe('positive');
+  expect(evaluatePower(layout, sockets, terminals).terminals['board:d11']).toBe('voltage');
   expect(evaluatePower(layout, sockets, terminals).terminals['board:e10']).toBe('negative');
   for (const connection of layout.wires) expect(evaluatePower({ ...layout, wires: layout.wires.filter(w => w.id !== connection.id) }, sockets, terminals).leds.led).toBe('unconnected');
   layout.instances[1].outputEnabled = false;
@@ -63,18 +64,20 @@ test('rail markings and crossing bend positions do not determine power or connec
 
 test('short circuits suppress output, recover after removal, and same-net LED legs stay off', () => {
   const layout = circuit();
-  const short = wire('short', ref('board', 'b10'), ref('board', 'b11'));
+  const short = wire('short', ref('board', 'b10'), ref('board', 'b16'));
   layout.wires.push(short);
   let state = evaluatePower(layout, sockets, terminals);
   expect(state.supplies.supply).toBe('short-circuit');
   expect(state.leds.led).toBe('fault');
   expect(state.terminals['board:a10']).toBe('fault');
   layout.instances[1].outputEnabled = false;
-  expect(evaluatePower(layout, sockets, terminals).leds.led).toBe('same-network');
+  expect(evaluatePower(layout, sockets, terminals).leds.led).toBe('supply-off');
   layout.instances[1].outputEnabled = true;
   layout.wires.pop();
   state = evaluatePower(layout, sockets, terminals);
   expect(state.supplies.supply).toBe('on'); expect(state.leds.led).toBe('on');
+  layout.wires.push(wire('led-bypass', ref('board', 'b10'), ref('board', 'b11')));
+  expect(evaluatePower(layout, sockets, terminals).leds.led).toBe('same-network');
 });
 
 test('independent supplies work; shared circuits fault only while multiple supplies are enabled', () => {
@@ -88,11 +91,14 @@ test('independent supplies work; shared circuits fault only while multiple suppl
   expect(state.leds).toEqual({ led: 'fault', 'second-led': 'fault' });
   layout.instances.find(i => i.id === 'second-supply')!.outputEnabled = false;
   state = evaluatePower(layout, sockets, terminals);
-  expect(state.leds.led).toBe('on'); expect(state.leds['second-led']).toBe('supply-off');
+  expect(state.supplies.supply).toBe('on'); expect(state.supplies['second-supply']).toBe('off');
+  // Once the source conflict clears, two connected LED branches are still
+  // outside this milestone's supported series topology.
+  expect(state.leds.led).toBe('unsupported'); expect(state.leds['second-led']).toBe('unsupported');
   layout.wires.push(wire('positive-bridge', ref('board', 'top-positive-3'), ref('second-board', 'top-positive-3')));
   layout.instances.find(i => i.id === 'supply')!.outputEnabled = false;
   layout.instances.find(i => i.id === 'second-supply')!.outputEnabled = true;
-  expect(evaluatePower(layout, sockets, terminals).leds).toEqual({ led: 'on', 'second-led': 'on' });
+  expect(evaluatePower(layout, sockets, terminals).leds).toEqual({ led: 'unsupported', 'second-led': 'unsupported' });
 });
 
 test('supply wiring enforces occupancy and deletion releases endpoints and power', () => {
@@ -177,4 +183,31 @@ test('transition timing is bounded, reversible from the current value, and immed
   expect(transitionValue(halfway, 0, 180, 180)).toBe(0);
   expect(transitionValue(0, 1, 1000, 150)).toBe(1);
   expect(transitionValue(0, 1, 0, 0)).toBe(1);
+});
+
+test('voltage displays update independently, fade with output and dispose their textures', async () => {
+  const asset = await loadAsset('power');
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const draws: string[][] = [];
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+    createElement: () => {
+      const text: string[] = []; draws.push(text);
+      return { width: 0, height: 0, getContext: () => ({ clearRect: () => undefined, fillText: (value: string) => text.push(value), fillStyle: '', font: '', textAlign: '', textBaseline: '' }) };
+    },
+  } });
+  try {
+    const first = asset.object.clone(true), second = asset.object.clone(true);
+    const firstVisual = createPowerVisuals(first, 'power'), secondVisual = createPowerVisuals(second, 'power');
+    firstVisual.setVoltage!(12); secondVisual.setVoltage!(3.3);
+    expect(draws[0].at(-1)).toBe('12.0 V'); expect(draws[1].at(-1)).toBe('3.3 V');
+    const display = first.getObjectByName('Power_Output_Display') as Mesh;
+    const material = display.material as import('three').MeshBasicMaterial;
+    let disposed = false; material.map!.addEventListener('dispose', () => { disposed = true; });
+    firstVisual.apply(1, 0.5); expect(material.opacity).toBe(0.5);
+    firstVisual.apply(1, 0); expect(material.opacity).toBe(0);
+    firstVisual.dispose(); secondVisual.dispose(); expect(disposed).toBe(true);
+  } finally {
+    if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+  }
 });

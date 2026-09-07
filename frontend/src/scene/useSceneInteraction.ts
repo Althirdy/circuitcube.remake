@@ -7,8 +7,8 @@ import type { OrbitControls } from 'three-stdlib';
 import type { ComponentInstance, GroundPosition, MountCandidate, Point3, TerminalRef } from '../types/workspace';
 import type { Workspace } from '../store/useWorkspace';
 import { snapPosition } from '../lib/placement';
-import { isBreadboard, isMountable, mountPosition, switchMountPosition, socketsFor, SOCKET_PITCH, socketById, worldToLocal } from '../engine/breadboard';
-import { mountError, switchMountError } from '../engine/connections';
+import { isBreadboard, isMountable, socketsFor, SOCKET_PITCH, worldToLocal } from '../engine/breadboard';
+import { mountFlipped, mountedPosition, mountingCandidate } from '../engine/mounting';
 import { wirePoints } from '../lib/wireGeometry';
 import { routingSurface } from '../engine/terminals';
 
@@ -99,25 +99,9 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       const boardHit = boardAtPointer();
       if (!boardHit) return null;
       const current = latest.current;
-      const definitions = socketsFor(boardHit.board, current.sockets);
-      const nearest = [...definitions].sort((a, b) => Math.hypot(a.position[0] - boardHit.local[0], a.position[2] - boardHit.local[2]) - Math.hypot(b.position[0] - boardHit.local[0], b.position[2] - boardHit.local[2]))[0];
-      if (!nearest.row) return { mount: null, valid: false, reason: 'Use terminal holes, not rails' };
-      if (Math.hypot(nearest.position[0] - boardHit.local[0], nearest.position[2] - boardHit.local[2]) > SOCKET_PITCH * 0.72) return { mount: null, valid: false, reason: 'Move onto a terminal strip; the trench is not a socket' };
       const previous = current.instances.find(instance => instance.id === ignoreId);
-      const previousBoard = current.instances.find(instance => instance.id === (previous?.mount?.breadboardId ?? previous?.switchMount?.breadboardId));
-      const previousSockets = socketsFor(previousBoard, current.sockets);
-      const flipped = current.mode.kind === 'component-placement' ? current.mode.flipped : previous?.switchMount ? socketById(previousSockets, previous.switchMount.pins[0])!.column! > socketById(previousSockets, previous.switchMount.pins[2])!.column! : previous?.mount ? socketById(previousSockets, previous.mount.anode)!.column! < socketById(previousSockets, previous.mount.cathode)!.column! : Math.cos(previous?.rotation ?? 0) < 0;
-      if ((current.placing ?? previous?.modelId) === 'slide-switch') {
-        const pins: [string, string, string] = [nearest.id, `${nearest.row}${nearest.column! + 1}`, `${nearest.row}${nearest.column! + 2}`];
-        if (flipped) pins.reverse();
-        const switchMount = { breadboardId: boardHit.board.id, pins };
-        const error = switchMountError(current, switchMount, current.sockets, ignoreId);
-        return { mount: null, switchMount, valid: !error, reason: error ?? `1: ${pins[0]} / 2 common: ${pins[1]} / 3: ${pins[2]}` };
-      }
-      const next = `${nearest.row}${nearest.column! + 1}`;
-      const mount = { breadboardId: boardHit.board.id, anode: flipped ? nearest.id : next, cathode: flipped ? next : nearest.id };
-      const error = !socketById(definitions, next) ? 'The pair extends past the last column' : mountError(current, mount, current.sockets, ignoreId);
-      return { mount, valid: !error, reason: error ?? `Anode + ${mount.anode} / Cathode − ${mount.cathode}` };
+      const flipped = current.mode.kind === 'component-placement' ? current.mode.flipped : mountFlipped(previous, current, current.sockets);
+      return mountingCandidate(current, current.placing ?? previous?.modelId ?? 'led', boardHit.board, boardHit.local, current.sockets, flipped, ignoreId);
     };
     const snappedBend = (board: ComponentInstance, point: Vector3): Point3 => {
       const local = worldToLocal(board, point.toArray());
@@ -145,7 +129,7 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         const candidate = isMountable(modelId) ? mountCandidate(draggingMountable ? drag!.id : undefined) : null;
         const position = ground ? snapPosition([ground.x + (draggingMountable ? drag!.offset[0] : 0), ground.z + (draggingMountable ? drag!.offset[1] : 0)], current.spacing, current.snap) : [0, 0] as GroundPosition;
         const rotation = draggingMountable ? current.instances.find(instance => instance.id === drag!.id)!.rotation : current.mode.kind === 'component-placement' && current.mode.flipped ? Math.PI : 0;
-        const preview: ComponentInstance | null = ground ? { id: 'preview', modelId, position, rotation, switchPosition: dragged?.switchPosition, switchMount: candidate?.valid ? candidate.switchMount : undefined, mount: candidate?.valid ? candidate.mount ?? undefined : undefined } : null;
+        const preview: ComponentInstance | null = ground ? { id: 'preview', modelId, position, rotation, resistorMount: candidate?.valid ? candidate.resistorMount : undefined, resistanceOhms: dragged?.resistanceOhms, switchPosition: dragged?.switchPosition, switchMount: candidate?.valid ? candidate.switchMount : undefined, mount: candidate?.valid ? candidate.mount ?? undefined : undefined } : null;
         dropFeedback = { preview, candidate, hover: null, hiddenId: draggingMountable ? drag!.id : undefined };
         setFeedback(dropFeedback);
       } else { const part = interactivePartHit(); setFeedback({ preview: null, candidate: null, hover: socketHit(), hoverSwitch: part?.switchClick ? part.id : undefined }); }
@@ -164,12 +148,13 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       ray(event); const current = latest.current;
       if (event.button === 2) { rightDown = { x: event.clientX, y: event.clientY, hit: hit('wire-handles', 'wireId') ?? hit('placed-wires', 'wireId') }; return; }
       if (event.button !== 0 || event.shiftKey) return;
+      canvas.closest<HTMLElement>('.workplane')?.focus({ preventScroll: true });
       current.setContextMenu(null);
       if (current.draft) { stop(event); const target = socketHit(); if (target) current.completeWire(target); return; }
       if (current.placing) {
         stop(event); updatePreview();
         if (dropFeedback?.candidate && !dropFeedback.candidate.valid) { current.setMessage(dropFeedback.candidate.reason); return; }
-        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount, dropFeedback.preview.switchMount);
+        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount, dropFeedback.preview.switchMount, dropFeedback.preview.resistorMount);
         setFeedback({ preview: null, candidate: null, hover: null }); return;
       }
       const handle = hit('wire-handles', 'wireId');
@@ -189,7 +174,7 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         if (!component || !ground) { emptyDown = { x: event.clientX, y: event.clientY }; return; }
         stop(event); current.select(component.id);
         const instance = current.instances.find(item => item.id === component.id)!;
-        const mount = instance.switchMount ? switchMountPosition(instance.switchMount, current.instances, current.sockets) : instance.mount ? mountPosition(instance.mount, current.instances, current.sockets) : null;
+        const mount = mountedPosition(instance, current.instances, current.sockets);
         const position = mount ? [mount.position[0], mount.position[2]] : instance.position;
         drag = { id: component.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, offset: [position[0] - ground.x, position[1] - ground.z], moved: false, switchClick: switchPart?.id === component.id && switchPart.switchClick };
       }
@@ -250,7 +235,8 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       if (drag?.moved && drag.bendIndex === undefined && current.instances.some(item => item.id === drag!.id && isMountable(item.modelId))) {
         updatePreview();
         if (dropFeedback?.candidate) {
-          if (dropFeedback.candidate.valid && dropFeedback.candidate.switchMount) current.attachSwitch(drag.id, dropFeedback.candidate.switchMount);
+          if (dropFeedback.candidate.valid && dropFeedback.candidate.resistorMount) current.attachResistor(drag.id, dropFeedback.candidate.resistorMount);
+          else if (dropFeedback.candidate.valid && dropFeedback.candidate.switchMount) current.attachSwitch(drag.id, dropFeedback.candidate.switchMount);
           else if (dropFeedback.candidate.valid && dropFeedback.candidate.mount) current.attach(drag.id, dropFeedback.candidate.mount);
           else current.setMessage(dropFeedback.candidate.reason);
         } else if (dropFeedback?.preview) current.detach(drag.id, dropFeedback.preview.position);

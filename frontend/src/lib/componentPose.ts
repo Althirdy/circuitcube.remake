@@ -1,9 +1,19 @@
 import { Box3, Mesh, Vector3 } from 'three';
 import type { Group } from 'three';
 import type { ComponentInstance, LoadedAsset, SocketSource } from '../types/workspace';
+import { resistorMountPosition } from '../engine/resistor';
 import { mountPosition, switchMountPosition } from '../engine/breadboard';
 
 export function componentPose(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketSource) {
+  if (instance.resistorMount) {
+    const mounted = resistorMountPosition(instance.resistorMount, instances, sockets);
+    const left = asset.object.getObjectByName('Resistor_Left_Anchor'), right = asset.object.getObjectByName('Resistor_Right_Anchor');
+    if (mounted && left && right) {
+      asset.object.updateMatrixWorld(true);
+      const center = left.getWorldPosition(new Vector3()).add(right.getWorldPosition(new Vector3())).multiplyScalar(0.5).applyAxisAngle(new Vector3(0, 1, 0), mounted.rotation);
+      return { position: new Vector3(...mounted.position).add(new Vector3(0, -0.001, 0)).sub(center), rotation: mounted.rotation };
+    }
+  }
   if (instance.switchMount) {
     const mounted = switchMountPosition(instance.switchMount, instances, sockets);
     const anchor = asset.object.getObjectByName('SlideSwitch_Anchor_2');

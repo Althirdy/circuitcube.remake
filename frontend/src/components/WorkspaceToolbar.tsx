@@ -20,10 +20,10 @@ export function WorkspaceToolbar({
         </span>
         <span className="toolbar-divider" />
         <button
-          disabled={!selected && workspace.placing !== 'led' && workspace.placing !== 'slide-switch'}
+          disabled={!selected && workspace.placing !== 'led' && workspace.placing !== 'slide-switch' && workspace.placing !== 'resistor'}
           onClick={workspace.rotate}
           aria-label="Rotate component"
-          title="Rotate (R); LEDs and slide switches rotate 180°"
+          title="Rotate (R); LEDs, slide switches and resistors rotate 180°"
         >
           <Icon name="rotate" />
           <span>Rotate</span>

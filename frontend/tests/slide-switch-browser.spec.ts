@@ -91,13 +91,14 @@ test('accessible switch state, rapid toggles, reduced motion and narrow-screen c
 
 test('a mounted switch changes common polarity and the LED reacts immediately', async ({ page }) => {
   const board = await powerView(page);
+  await page.getByRole('button', { name: 'Place Resistor', exact: true }).click(); await board.click('e40');
   await page.getByRole('button', { name: 'Place Slide Switch', exact: true }).click(); await board.click('e10');
   await page.getByRole('button', { name: 'Place LED', exact: true }).click(); await board.click('h20');
   await page.keyboard.press('r'); // anode h20, cathode h21
-  for (const [from, to] of [['positive', 'a10'], ['a12', 'negative'], ['b11', 'j20'], ['b12', 'j21']]) {
+  for (const [from, to] of [['positive', 'a10'], ['a12', 'negative'], ['b11', 'a40'], ['a45', 'j20'], ['b12', 'j21']]) {
     await board.click(from); await board.click(to);
   }
-  await expect(page.locator('.wire-item')).toHaveCount(4);
+  await expect(page.locator('.wire-item')).toHaveCount(5);
   await page.locator('.scene-item').filter({ hasText: 'Bench DC Power Supply' }).click();
   await page.getByRole('button', { name: 'Output on/off', exact: true }).click();
   await page.locator('.scene-item').filter({ hasText: 'LED' }).last().click();
@@ -109,7 +110,7 @@ test('a mounted switch changes common polarity and the LED reacts immediately', 
   await expect(page.locator('.switch-state')).toContainText('2 ↔ 3');
   await expect(page.locator('.switch-state')).toContainText('Negative');
   await page.locator('.scene-item').filter({ hasText: 'LED' }).last().click();
-  await expect(page.locator('.led-power-state')).toHaveAttribute('data-state', 'same-network');
+  await expect(page.locator('.led-power-state')).toHaveAttribute('data-state', 'below-forward');
   await page.locator('.scene-item').filter({ hasText: 'Slide Switch' }).click();
   await page.getByRole('button', { name: 'Switch position', exact: true }).click();
   await page.locator('.scene-item').filter({ hasText: 'LED' }).last().click();

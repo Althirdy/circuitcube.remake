@@ -4,10 +4,11 @@ import { powerView } from './helpers/powerView';
 test('supply leads in both directions light an inserted LED and react to switch, polarity and deletion', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const scene = await powerView(page);
+  await page.getByRole('button', { name: 'Place Resistor', exact: true }).click(); await scene.click('d11');
   await page.getByRole('button', { name: 'Place LED', exact: true }).click();
   await scene.click('e10');
   await expect(page.locator('.mounted-info')).toContainText('+ e11');
-  for (const [from, to] of [['positive', 'top-positive-1'], ['top-negative-1', 'negative'], ['top-positive-2', 'a11'], ['top-negative-2', 'a10']]) {
+  for (const [from, to] of [['positive', 'top-positive-1'], ['top-negative-1', 'negative'], ['top-positive-2', 'a16'], ['top-negative-2', 'a10']]) {
     await scene.click(from);
     await expect(page.locator('.wiring-panel')).toContainText('Drawing wire');
     if (from === 'positive') await expect(page.locator('.height-reference')).toContainText('workplane');

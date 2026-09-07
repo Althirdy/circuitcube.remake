@@ -88,8 +88,9 @@ for (const modelId of ['breadboard', 'breadboard-large'] as const) test(`${model
 test('common selects positive or negative without shorting the outer contacts', () => {
   let layout = mountSwitch(initial(), 'switch', mount, sockets);
   layout = mountLed(layout, 'led', { breadboardId: 'board', anode: 'd11', cathode: 'd12' }, sockets);
+  layout.instances.push({ id: 'limiter', modelId: 'resistor', position: [0, 0], rotation: 0, resistanceOhms: 330, resistorMount: { breadboardId: 'board', pins: ['d17', 'd12'] } });
   layout = connectWire(layout, wire('positive', ref('positive', 'supply'), ref('a10')), sockets, terminals);
-  layout = connectWire(layout, wire('negative', ref('negative', 'supply'), ref('a12')), sockets, terminals);
+  layout = connectWire(layout, wire('negative', ref('negative', 'supply'), ref('a17')), sockets, terminals);
   expect(evaluatePower(layout, sockets, terminals).leds.led).toBe('on');
   for (let index = 0; index < 20; index++) {
     layout = toggleSlideSwitch(layout, 'switch');
@@ -99,7 +100,8 @@ test('common selects positive or negative without shorting the outer contacts', 
     expect(power.terminals['board:b11']).toBe(index % 2 === 0 ? 'negative' : 'positive');
   }
   const short = connectWire(layout, wire('short', ref('b11'), ref('b12')), sockets, terminals);
-  expect(evaluatePower(short, sockets, terminals).supplies.supply).toBe('short-circuit');
+  expect(evaluatePower(short, sockets, terminals).supplies.supply).toBe('on');
+  expect(evaluatePower(short, sockets, terminals).leds.led).toBe('same-network');
   expect(evaluatePower(toggleSlideSwitch(short, 'switch'), sockets, terminals).supplies.supply).toBe('on');
   expect(evaluatePower(detachMounted(layout, 'switch', sockets), sockets, terminals).leds.led).toBe('unconnected');
   expect(evaluatePower(removeComponent(layout, 'switch', sockets), sockets, terminals).leds.led).toBe('unconnected');
@@ -123,10 +125,11 @@ test('mixed board endpoints use their own coordinates and remain attached after 
 test('independent switch circuits stay isolated and a shared active source circuit is suppressed', () => {
   let first = mountSwitch(initial(), 'switch', mount, sockets);
   first = mountLed(first, 'led', { breadboardId: 'board', anode: 'd11', cathode: 'd12' }, sockets);
+  first.instances.push({ id: 'limiter', modelId: 'resistor', position: [0, 0], rotation: 0, resistanceOhms: 330, resistorMount: { breadboardId: 'board', pins: ['d17', 'd12'] } });
   first = connectWire(first, wire('positive', ref('positive', 'supply'), ref('a10')), sockets, terminals);
-  first = connectWire(first, wire('negative', ref('negative', 'supply'), ref('a12')), sockets, terminals);
+  first = connectWire(first, wire('negative', ref('negative', 'supply'), ref('a17')), sockets, terminals);
   const second: Layout = {
-    instances: first.instances.map(instance => ({ ...instance, id: `second-${instance.id}`, switchMount: instance.switchMount ? { ...instance.switchMount, breadboardId: 'second-board' } : undefined, mount: instance.mount ? { ...instance.mount, breadboardId: 'second-board' } : undefined })),
+    instances: first.instances.map(instance => ({ ...instance, id: `second-${instance.id}`, switchMount: instance.switchMount ? { ...instance.switchMount, breadboardId: 'second-board' } : undefined, mount: instance.mount ? { ...instance.mount, breadboardId: 'second-board' } : undefined, resistorMount: instance.resistorMount ? { ...instance.resistorMount, breadboardId: 'second-board' } : undefined })),
     wires: first.wires.map(connection => ({ ...connection, id: `second-${connection.id}`, from: { ...connection.from, componentId: `second-${connection.from.componentId}` }, to: { ...connection.to, componentId: `second-${connection.to.componentId}` } })),
   };
   const both = { instances: [...first.instances, ...second.instances], wires: [...first.wires, ...second.wires] };

@@ -22,6 +22,10 @@ export function Connections({ workspace }: { workspace: Workspace }) {
   }
   return <>
     <group name="placed-wires">{wires.map(wire => <Wire key={wire.id} id={wire.id} points={wirePoints(wire, instances, sockets, powerTerminals)} color={WIRE_COLORS[wire.color]} selected={selection?.kind !== 'component' && selection?.id === wire.id} />)}</group>
+    <group name="selected-wire-endpoints">{wires.filter(wire => selection?.kind !== 'component' && selection?.id === wire.id).flatMap(wire => [wire.from, wire.to].map((ref, index) => {
+      const point = terminalPosition(ref, instances, sockets, powerTerminals);
+      return point ? <mesh key={`${wire.id}-endpoint-${index}`} position={point} raycast={() => null}><sphereGeometry args={[0.0012, 12, 8]} /><meshBasicMaterial color="#2680ef" transparent opacity={0.75} depthTest={false} depthWrite={false} /></mesh> : null;
+    }))}</group>
     <group name="wire-handles">{wires.filter(wire => selection?.kind !== 'component' && selection?.id === wire.id).flatMap(wire => {
       const board = instances.find(instance => instance.id === wire.from.componentId)!;
       return wire.bends.map((bend, index) => <mesh key={`${wire.id}-${index}`} position={localToWorld(board, bend)} userData={{ wireId: wire.id, bendIndex: index }}>
@@ -44,9 +48,9 @@ export function SocketFeedback({ workspace, hover, candidate, hoverSwitch }: { w
       const socket = socketById(definitions, hover.terminalId);
       if (board && socket) for (const member of definitions.filter(item => item.groupId === socket.groupId)) points.push({ point: localToWorld(board, member.position), color: member.id === socket.id ? '#1672f3' : '#94baf0' });
     }
-    if (candidate?.mount || candidate?.switchMount) {
-      const board = workspace.instances.find(instance => instance.id === (candidate.mount?.breadboardId ?? candidate.switchMount?.breadboardId));
-      const ids = candidate.switchMount?.pins ?? [candidate.mount!.anode, candidate.mount!.cathode];
+    if (candidate?.mount || candidate?.switchMount || candidate?.resistorMount) {
+      const board = workspace.instances.find(instance => instance.id === (candidate.mount?.breadboardId ?? candidate.switchMount?.breadboardId ?? candidate.resistorMount?.breadboardId));
+      const ids = candidate.resistorMount?.pins ?? candidate.switchMount?.pins ?? [candidate.mount!.anode, candidate.mount!.cathode];
       if (board) for (const id of ids) { const socket = socketById(socketsFor(board, workspace.sockets), id); if (socket) points.push({ point: localToWorld(board, socket.position), color: candidate.valid ? '#16a36a' : '#e34646' }); }
     }
     return points;

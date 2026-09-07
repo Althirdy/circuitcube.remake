@@ -2,35 +2,27 @@ AGENT.md — CircuitCube
 
 Project Mission
 
-CircuitCube is a browser-based interactive 3D electronics simulator.
+CircuitCube is a browser-based interactive 3D electronics simulator inspired by visual breadboard tools such as Tinkercad.
 
-The project should feel approachable like a visual breadboard tool while remaining technically clean, modular, and browser-friendly.
+The application is already beyond the initial asset-viewer stage. The current repository contains a working 3D workspace, two breadboard sizes, dynamic jumper wiring, a logical circuit engine, an interactive DC power supply, LEDs, and an SPDT slide switch.
 
-CircuitCube is no longer only a 3D asset viewer. The repository already contains:
+Future work must extend the existing architecture instead of rebuilding it.
 
-a React/TypeScript 3D workspace;
+CircuitCube should remain:
 
-component placement, movement, rotation, selection, and deletion;
+browser-friendly
 
-camera controls and grid snapping;
+modular
 
-breadboard socket targeting;
+visually understandable
 
-dynamic jumper-wire creation and editing;
+electrically predictable
 
-LED mounting and polarity handling;
+testable
 
-an interactive bench DC power supply;
+incremental rather than over-engineered
 
-logical power propagation;
-
-short-circuit and multiple-source fault detection;
-
-Playwright browser tests.
-
-The next work should extend this foundation instead of rebuilding it.
-
-Technology Stack
+Current Technology Stack
 
 Frontend
 
@@ -58,19 +50,19 @@ Blender Python (bpy)
 
 GLB / glTF
 
-Do not introduce a new major dependency unless it solves a real requirement that the current stack cannot handle cleanly.
+Do not add a new major dependency unless it solves a real current requirement that the existing stack cannot handle cleanly.
 
 Architecture Contract
 
-Keep these responsibilities separate.
+Keep these responsibilities separated:
 
 Blender / GLB
     ↓
 geometry
 materials
-mesh hierarchy
+object hierarchy
 pivots
-named interactive parts
+named interactive meshes
 named terminal anchors
 
 React / React Three Fiber
@@ -79,34 +71,44 @@ rendering
 selection
 dragging
 camera interaction
-component animation
-wire visualization
+visual animation
 pointer interaction
+wire rendering
 
 Workspace State
     ↓
-placed component instances
-wire instances
+component instances
+mount state
+switch state
+wires
 selection
 interaction mode
-component UI state
 
 Circuit Engine
     ↓
-electrical connectivity
-breadboard groups
+breadboard connectivity
+terminal networks
+switch connections
 power state
 polarity
+LED state
 fault detection
-component electrical behavior
+
+Rules:
 
 Never put electrical simulation logic inside Blender.
 
 Never make the renderer the source of truth for electrical connectivity.
 
-Actual Repository Structure
+Blender owns geometry and stable object contracts.
 
-The current repository is organized approximately as:
+TypeScript owns circuit behavior.
+
+React owns interaction and visualization.
+
+Keep electrical calculations pure and derived where practical.
+
+Current Repository Structure
 
 circuitcube.remake/
 │
@@ -135,208 +137,332 @@ circuitcube.remake/
 │
 ├── models/
 │   ├── breadboard.glb
+│   ├── breadboard-large.glb
 │   ├── power.glb
-│   └── led.glb
+│   ├── led.glb
+│   ├── slide-switch.glb
+│   └── additional source assets as developed
 │
 ├── scripts/
 │   ├── create_breadboard.py
 │   └── setup-frontend.ps1
 │
 ├── AGENT.md
-└── ...
+└── README.md
 
-Do not rewrite the repository into a monorepo/packages layout unless the project grows enough to justify it.
+Do not reorganize the project into a package monorepo unless the application becomes large enough to justify it.
 
-Do not create empty infrastructure folders only for appearance.
+Do not create empty Docker, infrastructure, or CI folders only for appearance.
 
-Current Runtime Assets
+Current Runtime Component Catalog
 
-The currently integrated runtime catalog contains:
+The current integrated runtime components are:
 
 breadboard
+breadboard-large
+power
+led
+slide-switch
+
+Source GLBs:
+
+models/breadboard.glb
+models/breadboard-large.glb
+models/power.glb
+models/led.glb
+models/slide-switch.glb
+
+frontend/scripts/sync-models.mjs copies source GLBs into frontend/public/models/.
+
+Generated files in frontend/public/models/ are not the source of truth.
+
+Asset Scale and Orientation Policy
+
+Asset scale must always be explicit.
+
+Existing 10x assets
+
+These currently use a 10x Blender working scale and runtime scale 0.1:
+
+breadboard
+breadboard-large
 power
 led
 
-The source GLBs are:
+Real-size assets
 
-models/breadboard.glb
-models/power.glb
-models/led.glb
+The slide switch is real physical size and currently uses:
 
-frontend/scripts/sync-models.mjs copies these into frontend/public/models/ before development and production builds.
+scale: 1
+rotation: [Math.PI / 2, 0, 0]
 
-Generated copies under frontend/public/models/ are not the source of truth.
+Its source orientation requires the +90° X runtime rotation.
 
-Asset Scale Policy
+New components such as resistors, switches, buttons, and future ICs should preferably use real physical dimensions unless there is a strong reason not to.
 
-Asset scale must be explicit.
+Do not assume all GLBs use the same source scale.
 
-Existing integrated assets
-
-The current integrated:
-
-breadboard
-
-power supply
-
-LED
-
-were modeled at a 10x Blender working scale and use:
-
-scale: 0.1
-
-at runtime.
-
-New real-size assets
-
-Newer components such as the resistor and tactile push button are being modeled at real physical size.
-
-These should normally use:
-
-scale: 1.0
-
-at runtime.
-
-Do not assume every GLB uses the same source scale.
-
-The modelCatalog runtime scale is part of the asset contract.
-
-Do not silently rescale an existing integrated asset.
+Do not silently change scale or coordinate assumptions of an integrated asset.
 
 Breadboard Contract
 
-Current integrated breadboard
+CircuitCube currently supports two breadboards.
 
-The current runtime breadboard is the 400-contact half-size asset:
+Half-Size Breadboard
 
-30 numbered columns;
+Runtime ID:
 
-rows a through j;
+breadboard
 
-300 terminal sockets;
+Structure:
 
-100 power-rail sockets.
+30 numbered columns
 
-The runtime socket coordinates are currently defined in:
+rows a through j
 
-frontend/src/engine/breadboard.ts
+300 terminal sockets
 
-Electrical grouping is:
+4 × 25-hole power rails
 
-a1 b1 c1 d1 e1  -> one conducting node
-f1 g1 h1 i1 j1  -> another conducting node
+400 total sockets
 
-Power rails are modeled as logical groups independently of their printed colors.
+Connectivity:
 
-Full-size 830-point breadboard
+a1 b1 c1 d1 e1 -> one node
+f1 g1 h1 i1 j1 -> another node
 
-A new full-size breadboard asset is being developed with:
+The same rule applies to each numbered column.
 
-63 numbered columns;
+Printed red/blue rail colors are visual only and do not assign polarity.
 
-630 terminal sockets;
+Full-Size Breadboard
 
-4 power rails × 50 sockets;
+Runtime ID:
 
-830 total tie points;
+breadboard-large
 
-center DIP trench;
+This is a full 830 tie-point breadboard:
 
-realistic red/blue rail markings.
+63 columns × 10 rows = 630
+4 rails × 50 holes   = 200
+--------------------------
+TOTAL                 = 830
 
-Desired full-board rail behavior:
+Do not call it an "800-pin breadboard" in code or documentation.
 
-rail holes 1-25  -> left rail segment
-rail holes 26-50 -> right rail segment
+Each 50-hole power rail is split electrically:
 
-When the 830-point model replaces or joins the runtime catalog, update all of these together:
+holes 1–25  -> left segment
+holes 26–50 -> right segment
 
-source GLB;
+A jumper is required to bridge the two halves.
 
-modelCatalog.ts;
+Stable IDs include:
 
-socket definitions;
+a1 ... j63
+top-positive-1 ... top-positive-50
+top-negative-1 ... top-negative-50
+bottom-positive-1 ... bottom-positive-50
+bottom-negative-1 ... bottom-negative-50
 
-breadboard group logic;
+The breadboard engine is authoritative for runtime socket definitions.
 
-placement/mounting assumptions;
+The old scripts/create_breadboard.py is not authoritative for the current exported GLBs.
 
-connection tests;
-
-power tests;
-
-docs/asset-contract.md.
-
-Do not regenerate the current 400-contact runtime GLB using the old scripts/create_breadboard.py; that script describes a different 830-hole prototype and is not the source of the currently integrated board.
+Do not regenerate the current runtime breadboards from it unless the asset contract is intentionally being replaced.
 
 Power Supply Contract
 
-Stable source mesh names currently used by the frontend include:
+The bench DC power supply is already interactive and participates in logical power simulation.
+
+Stable names include:
 
 Power_Switch
 Power_Switch_Housing
+
 Voltage_Knob
 Current_Knob
+
 Positive_Terminal_Metal
 Negative_Terminal_Metal
+
 Positive_Terminal_Base
 Negative_Terminal_Base
+
 Display_Glass
 Display_Voltage
 Display_Unit
 
-Runtime terminal anchors are derived from the terminal metal meshes when explicit source anchors are unavailable:
+Runtime anchors:
 
 Positive_Wire_Anchor
 Negative_Wire_Anchor
 
-The power switch is interactive.
+The frontend may derive those anchors from the terminal metal geometry when they are absent from the source GLB.
 
-A stationary click can toggle requested output.
+A stationary click toggles requested output.
 
-Dragging the component must not accidentally toggle the switch.
+Dragging the supply must not accidentally toggle the rocker.
 
-The rocker visual state and actual electrical output state are different concepts:
+Requested switch state and actual output state are separate:
 
-requested switch state
-        ↓
+requested output
+      ↓
 circuit evaluation
-        ↓
-actual output state
+      ↓
+actual output
 
-A requested ON state can still have output suppressed by a circuit fault.
+A circuit fault may suppress output while the rocker remains visually ON.
 
 LED Contract
 
-Stable names include:
+Stable names:
 
 LED_Root
 LED_Lens
 LED_Dome
 LED_BaseFlange
+
 LED_Anode_Pin
 LED_Cathode_Pin
+
 Anode_Wire_Anchor
 Cathode_Wire_Anchor
+
 LED_Glow_Anchor
 
 The LED is polarized:
 
-anode = positive side;
+anode   -> positive side
+cathode -> negative side
 
-cathode = negative side.
+Mounted LEDs occupy two breadboard sockets.
 
-Mounted LEDs use two breadboard sockets.
+The runtime may shorten cloned LED pin transforms for mounting but must never mutate shared source GLB geometry.
 
-The renderer may shorten cloned lead meshes visually while mounting, but must not mutate the shared source GLB geometry.
+Each LED instance must own its animated emissive materials so one LED can glow independently of another.
 
-Each LED instance must own its animated emissive materials so one LED can glow without affecting another.
+LED illumination comes from the circuit engine.
 
-LED illumination is driven by the circuit engine, not by pointer interaction alone.
+SPDT Slide Switch Contract
 
-Resistor Asset Contract
+Runtime ID:
 
-The resistor asset is being developed as a real-size axial through-hole resistor.
+slide-switch
+
+The slide switch is already integrated into:
+
+the model catalog
+
+workspace placement
+
+breadboard mounting
+
+interaction
+
+circuit evaluation
+
+visual animation
+
+Playwright tests
+
+Stable asset names:
+
+SlideSwitch_Root
+SlideSwitch_Body
+SlideSwitch_Metal_Frame
+SlideSwitch_Slot
+
+SlideSwitch_Slider
+SlideSwitch_Slider_Grip
+
+SlideSwitch_Pin_1
+SlideSwitch_Pin_2
+SlideSwitch_Pin_3
+
+SlideSwitch_Anchor_1
+SlideSwitch_Anchor_2
+SlideSwitch_Anchor_3
+
+SlideSwitch_Slider_Left_Anchor
+SlideSwitch_Slider_Right_Anchor
+
+Pin roles:
+
+Pin 1 = throw A
+Pin 2 = common
+Pin 3 = throw B
+
+Electrical behavior:
+
+LEFT
+Pin 1 ↔ Pin 2
+Pin 3 disconnected
+
+RIGHT
+Pin 1 disconnected
+Pin 2 ↔ Pin 3
+
+The switch does not generate positive or negative voltage itself.
+
+For a HIGH/LOW input selector:
+
+Pin 1 -> VCC / positive
+Pin 2 -> output / IC input
+Pin 3 -> GND / negative
+
+Then:
+
+LEFT  -> common receives HIGH
+RIGHT -> common receives LOW
+
+Runtime state:
+
+switchPosition?: "left" | "right";
+
+Mounting
+
+A mounted slide switch uses three adjacent numbered terminal holes in one row.
+
+Example:
+
+e10
+e11 <- common
+e12
+
+Reject:
+
+rails
+
+non-adjacent columns
+
+mixed rows
+
+occupied sockets
+
+out-of-range sockets
+
+Rotating a mounted switch reverses physical pin ordering without changing its stored electrical state.
+
+Animation
+
+React animates:
+
+SlideSwitch_Slider
+SlideSwitch_Slider_Grip
+
+using the delta between:
+
+SlideSwitch_Slider_Left_Anchor
+SlideSwitch_Slider_Right_Anchor
+
+Do not hard-code a different travel distance unless the source asset changes.
+
+Resistor Contract — Next Major Component
+
+A resistor source asset has been developed, but it is not yet fully integrated into the runtime catalog and electrical engine.
+
+Treat the resistor as the next major component.
 
 Recommended stable names:
 
@@ -350,160 +476,106 @@ Resistor_Band_4
 
 Resistor_Lead_Left
 Resistor_Lead_Right
-Resistor_Lead_Left_Down
-Resistor_Lead_Right_Down
 
 Resistor_Left_Anchor
 Resistor_Right_Anchor
 
 The resistor is non-polarized.
 
-One source GLB should support many resistor values.
+One GLB should support many resistance values.
 
-Do not create a separate GLB for every resistance.
+Do not create separate GLBs for every resistor value.
 
-React may recolor the band meshes based on the selected resistance value.
-
-Example conceptual data:
+Component state should eventually contain values such as:
 
 {
   resistanceOhms: 1000,
   tolerancePercent: 5
 }
 
-When resistor simulation is introduced, resistance belongs in the circuit engine/domain state, not in Blender.
+React may recolor the separate band meshes.
 
-Do not introduce voltage/current calculations until the electrical model for resistors is intentionally designed.
+Resistance belongs in TypeScript domain state and the circuit engine, not Blender.
 
-Tactile Push Button Contract
+Push Button Status
 
-The tactile push button is being developed as a real-size 6×6 mm momentary switch.
+A tactile push-button asset may exist as an experiment, but it is not currently a runtime priority.
 
-Stable names should include:
+Do not integrate it ahead of the resistor unless there is a concrete feature requiring momentary switching.
 
-PushButton_Root
-PushButton_Base
-PushButton_Metal_Frame
-PushButton_Actuator
+If integrated later, model electrical state as:
 
-PushButton_Pin_1
-PushButton_Pin_2
-PushButton_Pin_3
-PushButton_Pin_4
+pressed: boolean
 
-PushButton_Anchor_1
-PushButton_Anchor_2
-PushButton_Anchor_3
-PushButton_Anchor_4
+not positive/negative.
 
-Mechanical behavior
+Keep physical actuator animation separate from electrical connectivity.
 
-PushButton_Actuator is the movable visual object.
+Dynamic Jumper Wire Contract
 
-React should animate it along local Y:
+Jumper wires are runtime-generated geometry.
 
-released -> rest Y
-pressed  -> lower Y
+Do not create permanent GLBs for ordinary workspace jumper wires.
 
-The Blender asset may store:
+Current wire data includes the concepts:
 
-actuator_rest_y
-actuator_pressed_y
-press_travel_m
-
-Electrical behavior
-
-Do not model the button as "positive" or "negative".
-
-Model it as a switch state:
-
-pressed: false
-pressed: true
-
-Typical 4-pin tactile-switch grouping:
-
-Pin 1 + Pin 2 = Side A
-Pin 3 + Pin 4 = Side B
-
-Released:
-
-Side A disconnected from Side B
-
-Pressed:
-
-Side A connected to Side B
-
-This same mechanical/electrical separation should be reused for future switches and interactive IC-related controls.
-
-Dynamic Wire Contract
-
-Jumper wires are runtime geometry.
-
-Do not create permanent jumper-wire GLBs for normal workspace wiring.
-
-Current wire data includes:
-
-source terminal;
-
-destination terminal;
-
-color;
-
-editable bend points;
-
-route height.
-
-The renderer currently creates curved tube geometry from the serialized route.
+{
+  from,
+  to,
+  color,
+  bends,
+  height
+}
 
 Wire endpoints must stay attached when components move or rotate.
 
-Crossing visual wire paths do not imply electrical connection.
+Visual wire crossings do not create electrical junctions.
 
-Only terminal-to-terminal connections create conducting edges.
+Only explicit terminal connections create electrical connectivity.
 
 Circuit Engine
 
-The electrical engine is pure TypeScript and currently handles simplified logical power.
-
-Relevant modules include:
+Relevant current modules include:
 
 frontend/src/engine/breadboard.ts
 frontend/src/engine/connections.ts
 frontend/src/engine/power.ts
 frontend/src/engine/terminals.ts
 
-Current behavior
+Current Supported Behavior
 
 The engine already supports:
 
-breadboard conducting groups;
+breadboard conducting groups
 
-completed-wire connectivity;
+jumper-wire connectivity
 
-enabled/disabled supplies;
+supply ON/OFF
 
-LED polarity;
+positive/negative propagation
 
-open circuits;
+LED polarity
 
-short circuits;
+LED ON/OFF
 
-same-network LED legs;
+slide-switch selected contacts
 
-multiple connected enabled supplies;
+short-circuit detection
 
-fault suppression;
+multiple connected enabled-source faults
 
-independent circuits.
+independent circuits
 
-Current supply states include:
+fault recovery after invalid connections are removed
+
+Supply states include:
 
 off
 on
 short-circuit
 multiple-supplies
 
-Current LED states include:
+LED states include:
 
 on
 unmounted
@@ -513,332 +585,442 @@ reversed
 same-network
 fault
 
-Current simulation scope
+Current Simulation Limits
 
-The existing engine is intentionally logical rather than analog.
+CircuitCube is currently a logical connectivity simulator, not an analog solver.
 
 It does not yet calculate:
 
-resistance;
+resistance
 
-voltage drop;
+current
 
-current;
+voltage drop
 
-power dissipation;
+LED forward voltage
 
-LED forward voltage;
+power dissipation
 
-brightness;
+current-based brightness
 
-thermal effects.
+thermal effects
 
-Do not pretend these values are simulated before they actually are.
+Do not fake these values.
 
-Do not jump directly to a SPICE-style simulator.
+Do not jump directly to SPICE.
 
-Grow the circuit model incrementally.
+The resistor milestone should introduce the smallest useful electrical model first.
+
+Recommended Resistor Simulation Direction
+
+A reasonable first progression is:
+
+topology
+   ↓
+source voltage
+   ↓
+resistor value
+   ↓
+LED forward-voltage approximation
+   ↓
+series current
+   ↓
+LED state
+
+For a simple DC series circuit:
+
+I = (Vs - Vf) / R
+
+when:
+
+Vs > Vf
+
+Start with intentionally limited DC series-circuit behavior.
+
+Do not implement a general nodal-analysis engine until the product actually requires it.
 
 Workspace State
 
-The project currently uses React state with a reducer-based workspace store.
+The project currently uses React reducer-based workspace state.
 
-Important state includes:
+Do not introduce Zustand merely because an older plan mentioned it.
 
-loaded asset states;
+Workspace state currently covers:
 
-component instances;
+assets
 
-wires;
+placed instances
 
-selection;
+wires
 
-interaction mode;
+selection
 
-requested power-output state;
+placement
 
-wire draft state;
+mounting
 
-wire display properties.
+switch state
 
-Keep electrical calculations out of the React store when they can remain pure derived functions.
+requested power state
 
-Do not add Zustand merely because an older roadmap mentioned it.
+wire editing
 
-Introduce a different state library only when there is a concrete reason.
+interaction messages
 
-Scene / Interaction Architecture
+Keep circuit calculations outside the store when they can remain pure derived functions.
 
-The current scene layer includes:
+Scene and Interaction Architecture
 
+Important files include:
+
+frontend/src/scene/CircuitScene.tsx
 frontend/src/scene/AssetLoader.tsx
 frontend/src/scene/CameraRig.tsx
-frontend/src/scene/CircuitScene.tsx
-frontend/src/scene/usePowerAnimation.ts
 frontend/src/scene/useSceneInteraction.ts
 
-useSceneInteraction.ts is already a large interaction hotspot.
+frontend/src/components/3d/ModelInstance.tsx
+frontend/src/components/3d/Connections.tsx
+frontend/src/components/3d/Wire.tsx
 
-It currently coordinates things such as:
+useSceneInteraction.ts is already a major interaction hotspot.
 
-raycasting;
+It currently handles responsibilities such as:
 
-socket targeting;
+raycasting
 
-power-terminal targeting;
+component dragging
 
-power-switch clicks;
+socket targeting
 
-component dragging;
+LED mounting
 
-LED mounting;
+slide-switch mounting
 
-placement previews;
+power-switch interaction
 
-wire drawing;
+wire drawing
 
-bend editing;
+bend editing
 
-pointer capture;
+pointer capture
 
-camera-control coordination.
+camera coordination
 
-Do not keep adding every new component-specific behavior into this one file indefinitely.
+Do not keep adding every future component-specific behavior into one file indefinitely.
 
-When complexity materially increases, prefer extracting focused helpers or hooks rather than rewriting the whole interaction system.
-
-Potential future separation:
+When complexity materially increases, consider focused modules such as:
 
 scene/interactions/
 ├── hitTesting.ts
-├── componentDragging.ts
-├── wiring.ts
+├── dragging.ts
 ├── mounting.ts
-└── switchInteraction.ts
+├── wiring.ts
+└── switching.ts
 
-Refactor only when the new feature makes the split useful.
+Refactor only when the new work makes the split useful.
 
-Rendering and Performance Rules
+Model Loading Rules
 
-CircuitCube runs in the browser.
+Use the current Three.js / Drei GLB pipeline.
+
+Do not manually recreate complex Blender assets from hundreds of JSX primitives without a strong technical reason.
+
+Stable object names are part of the runtime contract.
+
+Example:
+
+scene.getObjectByName("SlideSwitch_Slider");
+
+Changing a stable name may break rendering, interaction, or tests.
+
+Performance Rules
 
 Always consider:
 
-GLB size;
+GLB size
 
-polygon count;
+polygon count
 
-draw calls;
+draw calls
 
-material count;
+material count
 
-object count;
+object count
 
-runtime-generated geometry;
+runtime geometry allocation
 
-texture memory;
+duplicated materials/textures
 
-repeated allocations.
+unnecessary animation frames
 
 Prefer:
 
-shared immutable geometry;
+merged decorative meshes
 
-cloned instance-specific materials only when animation requires them;
+shared immutable geometry
 
-merged decorative meshes;
+cloned materials only when per-instance animation requires them
 
-lightweight Blender assets;
+logical metadata instead of visible helper geometry
 
-logical socket metadata instead of hundreds of React objects;
+demand-based rendering
 
-demand-based rendering where practical.
+low-to-moderate polygon assets
 
 Avoid:
 
-hundreds of Boolean operations for breadboard holes;
+hundreds of expensive Blender Boolean operations
 
-unnecessary high subdivision;
+unnecessary subdivision
 
-one permanent Three.js object per purely logical connection point when it is not needed;
+photorealistic geometry that hurts browser interaction
 
-photorealistic assets that materially hurt interaction performance.
+one permanent Three.js object for every purely logical point unless necessary
 
-Model Naming Rules
+Testing Contract
 
-Named GLB parts are part of the frontend contract.
+Playwright coverage is an important part of CircuitCube.
 
-Do not casually rename an object that React accesses using:
+Current tests cover areas including:
 
-scene.getObjectByName("...")
+component placement
 
-When an asset contract changes:
+camera behavior
 
-update the Blender generator/source;
+WebGL fallback
 
-update frontend lookup code;
+narrow/responsive layouts
 
-update tests;
+breadboard socket alignment
 
-update docs/asset-contract.md.
+both breadboard sizes
 
-Use descriptive stable names.
+jumper-wire creation
+
+bend editing
+
+LED mounting
+
+socket occupancy
+
+power propagation
+
+circuit faults
+
+slide-switch mounting
+
+slide-switch animation
+
+slide-switch contact selection
+
+browser-level powered circuits
+
+When adding a new electrical component, add:
+
+pure domain/electrical tests
+
+mounting/connection tests
+
+browser interaction tests where practical
+
+Do not weaken existing tests just to make new code pass.
+
+Current Project Status
+
+Implemented
+
+React/TypeScript 3D workspace
+
+Half-size 400-point breadboard
+
+Full-size 830-point breadboard
+
+Bench DC power supply
+
+5 mm LED
+
+Component library
+
+Placement
+
+Dragging
+
+Rotation
+
+Deletion
+
+Camera controls
+
+Grid snapping
+
+Breadboard socket targeting
+
+Dynamic jumper wires
+
+Wire colors
+
+Wire height
+
+Wire bend editing
+
+LED mounting
+
+LED polarity
+
+Power switch interaction
+
+LED glow
+
+Logical power propagation
+
+Short-circuit detection
+
+Multiple-source fault detection
+
+SPDT slide switch
+
+Slide-switch mounting
+
+Slide-switch visual animation
+
+Slide-switch electrical switching
+
+Playwright integration coverage
+
+Next Engineering Work
+
+Integrate resistor into ModelId
+
+Add resistor to modelCatalog
+
+Add resistor to model syncing
+
+Support resistor breadboard mounting
+
+Add resistor component state
+
+Add resistor color-band logic
+
+Introduce resistance/current behavior
+
+Extend LED behavior to use current when appropriate
+
+Later
+
+Workspace persistence
+
+Capacitors
+
+Potentiometers
+
+Push buttons
+
+ICs / logic gates
+
+Digital logic visualization
+
+Arduino / ESP32
+
+richer analog simulation
+
+Do not skip directly to microcontrollers before the core component/circuit model is strong.
+
+Recommended Immediate Roadmap
+
+Milestone 1 — Resistor Runtime Integration
+
+Integrate the resistor visually first.
+
+Required areas:
+
+ModelId
+modelCatalog
+sync-models
+asset preparation
+placement
+breadboard mounting
+selection UI
+tests
+
+Do not change analog electrical behavior in the same step unless necessary.
+
+Milestone 2 — Resistor Electrical Data
+
+Add:
+
+resistanceOhms
+tolerancePercent
+
+and dynamic band colors.
+
+Milestone 3 — Simple DC Current Model
+
+Support an intentionally limited series circuit such as:
+
+Power +
+   ↓
+Resistor
+   ↓
+LED
+   ↓
+Power -
+
+Milestone 4 — Digital IC Foundation
+
+Once resistor/current behavior is stable, begin digital IC work using the existing SPDT switch as a reusable HIGH/LOW input selector.
 
 Coding Standards
 
 TypeScript
 
-use TypeScript;
+use TypeScript
 
-avoid any unless unavoidable;
+avoid any
 
-prefer explicit domain types;
+prefer explicit domain types
 
-keep pure electrical logic separate from view code;
+keep circuit logic pure where practical
 
-use descriptive names;
+use descriptive names
 
-avoid premature abstractions.
+avoid premature abstractions
 
 React
 
-use functional components;
+use functional components
 
-keep App.tsx thin;
+keep App.tsx thin
 
-keep Three.js concerns inside scene/3D layers;
+keep Three.js concerns inside scene/3D layers
 
-do not mutate shared loaded GLB resources unexpectedly;
+do not mutate shared GLB geometry unexpectedly
 
-do not make UI state the only source of circuit truth.
+keep UI state separate from derived electrical results
 
 Blender Python
 
 Use reproducible generators where practical.
 
-Examples:
+Naming examples:
 
 create_breadboard_*.py
 create_resistor_*.py
+create_slide_switch_*.py
 create_push_button_*.py
 
-Prefer real dimensions for new assets unless there is a clear reason to use a working scale.
+Document:
 
-If a working scale is used, document it in the asset and runtime catalog.
+physical dimensions
 
-Current Development Milestones
+working scale
 
-Do not treat these as rigid project phases. They are the current direction and may overlap.
+coordinate system
 
-Already Implemented
+stable object names
 
-3D workspace;
+terminal anchors
 
-current 400-point breadboard runtime model;
-
-power supply runtime model;
-
-LED runtime model;
-
-component library;
-
-placement and dragging;
-
-rotation and deletion;
-
-camera presets;
-
-grid snapping;
-
-socket targeting;
-
-jumper-wire drawing;
-
-wire bend editing;
-
-LED breadboard mounting;
-
-power-supply rocker interaction;
-
-logical power propagation;
-
-LED glow;
-
-short-circuit detection;
-
-multiple-source fault detection;
-
-Playwright coverage.
-
-Asset Work In Progress
-
-full-size 830-point breadboard;
-
-real-size axial resistor;
-
-real-size 6×6 tactile push button.
-
-Recommended Next Engineering Work
-
-finish and validate the new Blender assets;
-
-integrate the resistor into the model catalog and mounting system;
-
-add resistor electrical-domain data;
-
-integrate the tactile button;
-
-add pressed/released switch connectivity;
-
-decide whether the 830-point board replaces the 400-point board or becomes a second breadboard option;
-
-migrate the breadboard engine only after the 830 asset geometry is final;
-
-add persistence later when workspace interactions are stable.
-
-Testing Contract
-
-Existing Playwright coverage is valuable and should remain part of CircuitCube development.
-
-Tests already cover areas including:
-
-actual GLB socket alignment;
-
-component placement;
-
-movement and rotation;
-
-camera controls;
-
-asset failures;
-
-wire creation/editing;
-
-LED mounting;
-
-socket occupancy;
-
-power states;
-
-short circuits;
-
-multiple supplies;
-
-rocker interaction;
-
-independent LED materials;
-
-narrow layouts;
-
-WebGL fallback.
-
-When adding a new electrical component, add tests for both:
-
-pure circuit behavior;
-
-browser interaction behavior when practical.
-
-Do not weaken existing tests just to make a new implementation pass.
+interactive meshes
 
 Development Commands
 
@@ -850,113 +1032,102 @@ Development:
 
 npm.cmd run dev
 
-Static/build verification:
+Verification:
 
 npm.cmd run lint
 npm.cmd run build
-
-Browser tests:
-
 npm.cmd run test:e2e
 
-The repository's edit-only development skill may require the user to run verification commands instead of the agent.
+If the repository's edit-only development skill is active, the user may need to run verification commands instead of the coding agent.
 
-Deployment / Infrastructure
+Infrastructure Guardrails
 
-Application quality comes before deployment complexity.
+Do not over-engineer deployment while core simulator work is still progressing.
 
-Docker, CI/CD, observability, and infrastructure can be added when they solve a real deployment need.
+Add Docker, CI/CD, observability, or infrastructure only when there is a real deployment requirement.
 
-Do not introduce:
+Do not introduce technologies such as:
 
-Kubernetes;
+Kubernetes
 
-Redis;
+Kafka
 
-Kafka;
+Redis
 
-microservices;
+microservices
 
-distributed infrastructure;
-
-without a concrete requirement.
+without a concrete need.
 
 A reasonable future deployment path is:
 
 GitHub
-  ↓
+   ↓
 CI
-  ↓
+   ↓
 lint / build / tests
-  ↓
-static frontend build or container
-  ↓
+   ↓
+frontend artifact or container
+   ↓
 hosting
 
-Scope Guardrails
+Documentation Rules
 
-Prefer the smallest implementation that advances the simulator.
+docs/asset-contract.md is an important implementation contract.
 
-Before adding a dependency, ask:
+Update it when:
 
-Is it needed now?
+source object names change
 
-Can the current stack handle the problem cleanly?
+model scale changes
 
-Does it reduce complexity rather than move it elsewhere?
+orientation changes
 
-Before adding a new electrical feature, ask:
+terminal anchors change
 
-What is its terminal model?
+breadboard socket coordinates change
 
-Is it polarized?
+component mounting rules change
 
-Which terminals are internally connected?
+electrical behavior changes
 
-Does its connectivity change with interaction?
+AGENT.md describes project-level engineering guidance.
 
-What belongs in Blender versus React versus the circuit engine?
-
-Before modifying an asset, ask:
-
-Is its runtime scale documented?
-
-Are object names already used by React?
-
-Are anchors required?
-
-Will the change invalidate measured terminal coordinates?
-
-Do tests or the asset contract need to change?
+docs/asset-contract.md should remain more exact about asset/runtime implementation details.
 
 Agent Behavior
 
 When working in this repository:
 
-Read this file before architectural or asset-contract changes.
+Read AGENT.md.
 
-Inspect the existing implementation before proposing a replacement.
+Inspect the actual current implementation before proposing changes.
 
-Treat docs/asset-contract.md as an important runtime contract.
+Read docs/asset-contract.md before modifying an asset/runtime contract.
 
 Preserve stable GLB object names used by React.
 
-Never silently change an asset's scale or coordinate assumptions.
+Do not silently change scale or coordinate assumptions.
 
 Never put electrical simulation logic inside Blender.
 
 Keep circuit evaluation separate from rendering.
 
-Prefer incremental changes that can be tested immediately.
+Prefer incremental changes.
 
 Preserve unrelated user work.
 
-Do not add infrastructure or dependencies for appearance.
+Do not add dependencies for appearance.
 
 Keep CircuitCube browser-friendly.
 
-Update documentation when the implementation meaningfully changes.
+Add or update tests for important behaviors.
 
-When uncertain, prefer the simpler implementation that fits the existing architecture.
+Update documentation when implementation contracts change.
 
-CircuitCube should grow from a strong interactive electronics core, not from accumulating technologies.
+Do not describe already implemented features as future work.
+
+Do not assume an old roadmap is more accurate than the repository.
+
+When uncertain, inspect the existing code first.
+
+CircuitCube should become more capable by strengthening its electronics model and interaction quality, not by accumulating unnecessary technologies.

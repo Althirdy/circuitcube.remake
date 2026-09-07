@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { snapPosition } from '../lib/placement';
 import { BREADBOARD_SOCKETS, LARGE_BREADBOARD_SOCKETS, isMountable, socketById, socketsFor } from '../engine/breadboard';
-import { switchMountError, mountSwitch, toggleSlideSwitch, canConnect, connectWire, detachMounted, mountError, mountLed, occupiedSockets, removeComponent, terminalKey } from '../engine/connections';
-import type { GroundPosition, InteractionMode, Layout, LedMount, SwitchMount, LoadedAsset, ModelId, Point3, SceneApi, Selection, TerminalRef, WireColor, WireContextMenu, WireInstance } from '../types/workspace';
+import { resistorMountError, mountResistor, switchMountError, mountSwitch, toggleSlideSwitch, canConnect, connectWire, detachMounted, mountError, mountLed, occupiedSockets, removeComponent, terminalKey } from '../engine/connections';
+import type { GroundPosition, InteractionMode, Layout, LedMount, SwitchMount, ResistorMount, LoadedAsset, ModelId, Point3, SceneApi, Selection, TerminalRef, WireColor, WireContextMenu, WireInstance } from '../types/workspace';
 import { initialWorkspace, workspaceReducer } from './workspaceReducer';
 import { evaluatePower } from '../engine/power';
 import { routingSurface, terminalDefinition, terminalLabel } from '../engine/terminals';
 import type { TerminalDefinition } from '../types/workspace';
+
+import { DEFAULT_RESISTANCE, DEFAULT_VOLTAGE, RESISTANCE_VALUES, validVoltage } from '../engine/resistor';
+import { mountedBoardId } from '../engine/mounting';
 
 const NO_TERMINALS: TerminalDefinition[] = [];
 
@@ -32,6 +35,14 @@ export function useWorkspace() {
   const powerTerminals = assets.power.status === 'ready' ? assets.power.asset.terminals ?? NO_TERMINALS : NO_TERMINALS;
   const power = useMemo(() => evaluatePower({ instances, wires }, sockets, powerTerminals), [instances, wires, sockets, powerTerminals]);
   const toggleSwitch = (id: string) => updateLayout(current => toggleSlideSwitch(current, id));
+  const setVoltage = (id: string, voltage: number) => {
+    if (!validVoltage(voltage)) { setMessage('Use 0–12 V in 0.1 V steps.'); return; }
+    updateLayout(current => ({ ...current, instances: current.instances.map(instance => instance.id === id && instance.modelId === 'power' ? { ...instance, voltage } : instance) }));
+  };
+  const setResistance = (id: string, resistanceOhms: number) => {
+    if (!RESISTANCE_VALUES.some(value => value === resistanceOhms)) return;
+    updateLayout(current => ({ ...current, instances: current.instances.map(instance => instance.id === id && instance.modelId === 'resistor' ? { ...instance, resistanceOhms } : instance) }));
+  };
   const togglePower = (id: string) => updateLayout(current => ({ ...current, instances: current.instances.map(instance => instance.id === id && instance.modelId === 'power' ? { ...instance, outputEnabled: !instance.outputEnabled } : instance) }));
   const width = board.status === 'ready' ? Math.max(board.asset.size.x, board.asset.size.z) : 0.165;
   const spacing = 0.0084;
@@ -46,15 +57,16 @@ export function useWorkspace() {
     setContextMenu(null);
   };
   const move = (id: string, position: GroundPosition) => updateLayout(current => ({ ...current, instances: current.instances.map(instance => instance.id === id ? { ...instance, position: snapPosition(position, spacing, snap) } : instance) }));
-  const add = (modelId: ModelId, position: GroundPosition, mount?: LedMount, switchMount?: SwitchMount) => {
+  const add = (modelId: ModelId, position: GroundPosition, mount?: LedMount, switchMount?: SwitchMount, resistorMount?: ResistorMount) => {
     if (assets[modelId].status !== 'ready' || !initialized) return;
     if (mount) { const error = mountError(layout, mount, sockets); if (error) { setMessage(error); return; } }
     if (switchMount) { const error = switchMountError(layout, switchMount, sockets); if (error) { setMessage(error); return; } }
+    if (resistorMount) { const error = resistorMountError(layout, resistorMount, sockets); if (error) { setMessage(error); return; } }
     const id = crypto.randomUUID();
     const rotation = mode.kind === 'component-placement' && mode.flipped ? Math.PI : 0;
     updateLayout(current => {
-      const next = { ...current, instances: [...current.instances, { id, modelId, position: snapPosition(position, spacing, snap), rotation, switchPosition: modelId === 'slide-switch' ? 'left' as const : undefined, outputEnabled: modelId === 'power' ? false : undefined }] };
-      return switchMount ? mountSwitch(next, id, switchMount, sockets) : mount ? mountLed(next, id, mount, sockets) : next;
+      const next = { ...current, instances: [...current.instances, { id, modelId, position: snapPosition(position, spacing, snap), rotation, resistanceOhms: modelId === 'resistor' ? DEFAULT_RESISTANCE : undefined, tolerancePercent: modelId === 'resistor' ? 5 : undefined, powerRatingWatts: modelId === 'resistor' ? 0.25 : undefined, voltage: modelId === 'power' ? DEFAULT_VOLTAGE : undefined, switchPosition: modelId === 'slide-switch' ? 'left' as const : undefined, outputEnabled: modelId === 'power' ? false : undefined }] };
+      return resistorMount ? mountResistor(next, id, resistorMount, sockets) : switchMount ? mountSwitch(next, id, switchMount, sockets) : mount ? mountLed(next, id, mount, sockets) : next;
     });
     select(id); setMode({ kind: 'idle' });
   };
@@ -63,6 +75,12 @@ export function useWorkspace() {
     if (error) { setMessage(error); return; }
     updateLayout(current => mountLed(current, id, mount, sockets));
     setMessage(`LED inserted: + ${mount.anode}, − ${mount.cathode}`);
+  };
+  const attachResistor = (id: string, mount: ResistorMount) => {
+    const error = resistorMountError(layout, mount, sockets, id);
+    if (error) { setMessage(error); return; }
+    updateLayout(current => mountResistor(current, id, mount, sockets));
+    setMessage(`Resistor inserted: ${mount.pins[0]} ↔ ${mount.pins[1]}`);
   };
   const attachSwitch = (id: string, mount: SwitchMount) => {
     const error = switchMountError(layout, mount, sockets, id);
@@ -81,7 +99,7 @@ export function useWorkspace() {
     if (mode.kind === 'component-placement' && isMountable(mode.modelId)) { setMode({ ...mode, flipped: !mode.flipped }); return; }
     updateLayout(current => ({ ...current, instances: current.instances.map(instance => {
       if (instance.id !== selectedId) return instance;
-      return { ...instance, rotation: (instance.rotation + (isMountable(instance.modelId) ? Math.PI : Math.PI / 2)) % (Math.PI * 2), mount: instance.mount ? { ...instance.mount, anode: instance.mount.cathode, cathode: instance.mount.anode } : undefined, switchMount: instance.switchMount ? { ...instance.switchMount, pins: [instance.switchMount.pins[2], instance.switchMount.pins[1], instance.switchMount.pins[0]] as SwitchMount['pins'] } : undefined };
+      return { ...instance, resistorMount: instance.resistorMount ? { ...instance.resistorMount, pins: [instance.resistorMount.pins[1], instance.resistorMount.pins[0]] as ResistorMount['pins'] } : undefined, rotation: (instance.rotation + (isMountable(instance.modelId) ? Math.PI : Math.PI / 2)) % (Math.PI * 2), mount: instance.mount ? { ...instance.mount, anode: instance.mount.cathode, cathode: instance.mount.anode } : undefined, switchMount: instance.switchMount ? { ...instance.switchMount, pins: [instance.switchMount.pins[2], instance.switchMount.pins[1], instance.switchMount.pins[0]] as SwitchMount['pins'] } : undefined };
     }) }));
   };
   const editWire = (id: string, update: (wire: WireInstance) => WireInstance) => updateLayout(current => ({ ...current, wires: current.wires.map(wire => wire.id === id ? update(wire) : wire) }));
@@ -143,17 +161,18 @@ export function useWorkspace() {
       const instance = instances.find(item => item.id === selectedId);
       if (!delta[event.key] || !instance) return;
       event.preventDefault(); const [x, z] = delta[event.key];
-      if (instance.mount || instance.switchMount) {
-        const boardId = instance.mount?.breadboardId ?? instance.switchMount!.breadboardId;
+      if (instance.mount || instance.switchMount || instance.resistorMount) {
+        const boardId = mountedBoardId(instance);
         const definitions = socketsFor(instances.find(item => item.id === boardId), sockets);
         const shift = (id: string) => { const socket = socketById(definitions, id)!; const row = 'abcdefghij'.indexOf(socket.row!) - z; return `${'abcdefghij'[row] ?? '?'}${socket.column! + x}`; };
-        if (instance.switchMount) attachSwitch(instance.id, { ...instance.switchMount, pins: instance.switchMount.pins.map(shift) as [string, string, string] });
+        if (instance.resistorMount) attachResistor(instance.id, { ...instance.resistorMount, pins: instance.resistorMount.pins.map(shift) as [string, string] });
+        else if (instance.switchMount) attachSwitch(instance.id, { ...instance.switchMount, pins: instance.switchMount.pins.map(shift) as [string, string, string] });
         else if (instance.mount) attach(instance.id, { ...instance.mount, anode: shift(instance.mount.anode), cathode: shift(instance.mount.cathode) });
       } else { const step = spacing * (snap ? 1 : 0.1); move(instance.id, [instance.position[0] + x * step, instance.position[1] + z * step]); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
-  return { assets, instances, wires, sockets, powerTerminals, power, togglePower, toggleSwitch, selection, selectedId, select, selectWire, mode, setMode, placing, setPlacing, draft, snap, setSnap, spacing, width, initialized, sceneApi, loaded, failed, retry, move, add, rotate, remove, attach, attachSwitch, detach, beginWire, previewWire, addDraftBend, completeWire, editBend, addBend, wireColor, changeColor, height, changeHeight, message, setMessage, contextMenu, setContextMenu };
+  return { assets, instances, wires, sockets, powerTerminals, power, setVoltage, setResistance, togglePower, toggleSwitch, selection, selectedId, select, selectWire, mode, setMode, placing, setPlacing, draft, snap, setSnap, spacing, width, initialized, sceneApi, loaded, failed, retry, move, add, rotate, remove, attach, attachSwitch, attachResistor, detach, beginWire, previewWire, addDraftBend, completeWire, editBend, addBend, wireColor, changeColor, height, changeHeight, message, setMessage, contextMenu, setContextMenu };
 }
 export type Workspace = ReturnType<typeof useWorkspace>;

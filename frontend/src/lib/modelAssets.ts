@@ -14,6 +14,8 @@ import type { Object3D, WebGLRenderer } from "three";
 import type { ModelDefinition } from "../types/workspace";
 import { isBreadboard, sourceSockets } from '../engine/breadboard';
 import type { Point3 } from '../types/workspace';
+import { createResistorVisuals } from './resistorVisuals';
+import { DEFAULT_RESISTANCE } from '../engine/resistor';
 import { preparePowerTerminals } from './powerAsset';
 
 export function prepareModel(scene: Object3D, model: ModelDefinition) {
@@ -49,7 +51,10 @@ export function renderThumbnail(
 ): string {
   const scene = new Scene();
   scene.background = new Color("#f4f6f8");
-  scene.add(object.clone(true), new AmbientLight("#ffffff", 2.1));
+  const copy = object.clone(true);
+  const bands = copy.getObjectByName("Resistor_Root") ? createResistorVisuals(copy) : null;
+  bands?.apply(DEFAULT_RESISTANCE);
+  scene.add(copy, new AmbientLight("#ffffff", 2.1));
   const key = new DirectionalLight("#ffffff", 3.2);
   key.position.set(2, 4, 3);
   scene.add(key);
@@ -96,5 +101,6 @@ export function renderThumbnail(
   } finally {
     renderer.setRenderTarget(previous);
     target.dispose();
+    bands?.dispose();
   }
 }
