@@ -5,7 +5,7 @@ import { DEFAULT_RESISTANCE, DEFAULT_VOLTAGE } from './resistor';
 
 export type SupplyStatus = 'off' | 'on' | 'short-circuit' | 'multiple-supplies';
 export type TerminalStatus = 'unconnected' | 'positive' | 'negative' | 'voltage' | 'fault';
-export type LedStatus = 'on' | 'unmounted' | 'unconnected' | 'supply-off' | 'reversed' | 'same-network' | 'fault' | 'below-forward' | 'missing-resistor' | 'overcurrent' | 'resistor-overload' | 'unsupported';
+export type LedStatus = 'on' | 'unmounted' | 'unconnected' | 'supply-off' | 'reversed' | 'same-network' | 'fault' | 'below-forward' | 'missing-resistor' | 'overcurrent' | 'resistor-overload' | 'unsupported' | 'logic-unknown';
 export type ComponentReading = { current: number | null; voltageDrop: number | null; dissipation: number | null; brightness: number; warning: string | null; reason: string | null; estimatedUnsafe: boolean };
 export type WireReading = { voltage: number | null; current: number | null; supplyId: string | null; reason: string | null; currentReason: string | null; estimatedUnsafe: boolean };
 export type PowerResult = {
@@ -21,6 +21,7 @@ export const ledLabels: Record<LedStatus, string> = {
   'supply-off': 'LED OFF · supply is off', reversed: 'LED OFF · reversed polarity', 'same-network': 'LED OFF · legs share one network',
   fault: 'LED OFF · circuit fault', 'below-forward': 'LED OFF · below forward voltage',
   'missing-resistor': 'Missing current-limiting resistor', overcurrent: 'LED overcurrent',
+  'logic-unknown': 'LED OFF · IC output unresolved; check power and inputs',
   'resistor-overload': 'LED OFF · resistor overload', unsupported: 'Unsupported circuit topology',
 };
 export const terminalStatusLabels: Record<TerminalStatus, string> = {

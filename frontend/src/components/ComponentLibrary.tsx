@@ -2,6 +2,8 @@ import { modelCatalog, modelLabel } from "../lib/modelCatalog";
 import type { Workspace } from "../store/useWorkspace";
 import { Icon } from "./Icon";
 import { terminalLabel } from '../engine/terminals';
+import { categoryByModel, componentCategories } from '../lib/componentCategories';
+import { LibrarySection } from './LibrarySection';
 
 export function ComponentLibrary({
   workspace,
@@ -36,13 +38,9 @@ export function ComponentLibrary({
         <br />
         Choose a component to get started.
       </p>
-      <div className="library-category">
-        <Icon name="layers" size={16} />
-        <span>Basic electronics</span>
-        <span className="category-count">{modelCatalog.length}</span>
-      </div>
+      {componentCategories.map(category => <LibrarySection key={category.id} label={category.label} icon={category.icon} count={modelCatalog.filter(model => categoryByModel[model.id] === category.id).length} initiallyOpen={category.id === 'boards'} selected={workspace.instances.some(instance => instance.id === workspace.selectedId && categoryByModel[instance.modelId] === category.id) || (!!workspace.placing && categoryByModel[workspace.placing] === category.id)} errors={modelCatalog.filter(model => categoryByModel[model.id] === category.id && workspace.assets[model.id].status === 'error').length}>
       <div className="model-list">
-        {modelCatalog.map((model, index) => {
+        {modelCatalog.filter(model => categoryByModel[model.id] === category.id).map((model) => {
           const state = workspace.assets[model.id];
           return (
             <article
@@ -60,7 +58,6 @@ export function ComponentLibrary({
                 }}
               >
                 <div className="model-thumbnail">
-                  <span className="model-number">0{index + 1}</span>
                   {state.status === "ready" && state.asset.thumbnail ? (
                     <img
                       src={state.asset.thumbnail}
@@ -108,11 +105,10 @@ export function ComponentLibrary({
           );
         })}
       </div>
+      </LibrarySection>)}
+      <div className="circuit-contents-heading"><Icon name="layers" size={16} />Your circuit</div>
+      <LibrarySection label="On the workplane" icon="cube" count={workspace.instances.length} selected={!!workspace.selectedId}>
       <div className="scene-list">
-        <div className="scene-list-heading">
-          <span className="eyebrow">ON THE WORKPLANE</span>
-          <span>{workspace.instances.length}</span>
-        </div>
         {workspace.instances.length === 0 ? (
           <p>Your next idea starts here.</p>
         ) : (
@@ -139,16 +135,19 @@ export function ComponentLibrary({
           ))
         )}
       </div>
+      </LibrarySection>
       <div className="library-note">
         <span className="note-dot" />
         Click a socket or supply terminal to wire it.
         <br />
-        <span>Series DC · resistors limit LED current.</span>
+        <span>Series DC + 5 V logic ICs · use resistors with LEDs.</span>
       </div>
-      {workspace.wires.length > 0 && <div className="scene-list wire-list">
-        <div className="scene-list-heading"><span className="eyebrow">JUMPER WIRES</span><span>{workspace.wires.length}</span></div>
+      <LibrarySection label="Jumper wires" icon="wire" count={workspace.wires.length} selected={workspace.selection?.kind === 'wire' || workspace.selection?.kind === 'bend'}>
+      <div className="scene-list wire-list">
+        {!workspace.wires.length && <p>No wires yet. Click a free socket or supply terminal, then another endpoint.</p>}
         {workspace.wires.map((wire, index) => <button className="wire-item" key={wire.id} aria-pressed={workspace.selection?.kind !== 'component' && workspace.selection?.id === wire.id} onClick={() => { workspace.setPlacing(null); workspace.selectWire(wire.id); close(); }}>Wire {index + 1}: {terminalLabel(wire.from.terminalId)} → {terminalLabel(wire.to.terminalId)}</button>)}
-      </div>}
+      </div>
+      </LibrarySection>
     </aside>
   );
 }

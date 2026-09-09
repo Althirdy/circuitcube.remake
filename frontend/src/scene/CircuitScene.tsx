@@ -10,8 +10,11 @@ import { CameraRig } from "./CameraRig";
 import { useSceneInteraction } from "./useSceneInteraction";
 import { ElectricalWarnings } from '../components/3d/ElectricalWarnings';
 import { Connections, SocketFeedback } from '../components/3d/Connections';
+import { useTheme, sceneColors } from '../lib/theme';
 
 function Contents({ workspace }: { workspace: Workspace }) {
+  const { theme } = useTheme();
+  const colors = sceneColors[theme];
   const controls = useRef<OrbitControls | null>(null);
   const feedback = useSceneInteraction(workspace, controls);
   const preview = workspace.placing || workspace.mode.kind === 'component-mounting' ? feedback.preview : null;
@@ -20,7 +23,7 @@ function Contents({ workspace }: { workspace: Workspace }) {
     : null;
   return (
     <>
-      <color attach="background" args={["#f3f6f9"]} />
+      <color attach="background" args={[colors.background]} />
       <ambientLight intensity={1.8} />
       <hemisphereLight args={["#eaf2ff", "#a8adb6", 1]} />
       <directionalLight position={[1, 2, 3]} intensity={3} />
@@ -35,10 +38,10 @@ function Contents({ workspace }: { workspace: Workspace }) {
         args={[workspace.width * 100, workspace.width * 100]}
         cellSize={workspace.spacing}
         cellThickness={0.65}
-        cellColor="#cbd5df"
+        cellColor={colors.grid}
         sectionSize={workspace.spacing * 10}
         sectionThickness={1}
-        sectionColor="#9aaec0"
+        sectionColor={colors.section}
         fadeDistance={workspace.width * 24}
         fadeStrength={1.6}
         infiniteGrid

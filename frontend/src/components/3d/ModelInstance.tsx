@@ -11,6 +11,10 @@ import { isBreadboard } from '../../engine/breadboard';
 import { createSlideVisuals } from '../../lib/slideVisuals';
 import { createPowerVisuals } from '../../lib/powerVisuals';
 import { usePowerAnimation } from '../../scene/usePowerAnimation';
+import { isLogicIc } from '../../engine/digital/logicIcDefinitions';
+import { socketById, socketsFor } from '../../engine/breadboard';
+import { seatIcPins } from '../../lib/icAsset';
+import { useTheme, sceneColors } from '../../lib/theme';
 
 type Props = {
   instance: ComponentInstance;
@@ -38,16 +42,23 @@ export function ModelInstance({
   onPointerDown,
 }: Props) {
   const invalidate = useThree(state => state.invalidate);
+  const { theme } = useTheme();
+  const colors = sceneColors[theme];
   const mounted = !!instance.mount;
   const modelId = instance.modelId;
+  const boardSockets = socketsFor(instances.find(board => board.id === instance.icMount?.breadboardId), sockets);
+  const firstPin = instance.icMount && socketById(boardSockets, instance.icMount.pins[0]);
+  const lastPin = instance.icMount && socketById(boardSockets, instance.icMount.pins[13]);
+  const icRowSpacing = firstPin && lastPin ? Math.abs(firstPin.position[2] - lastPin.position[2]) : null;
   const previewSwitchRight = !!preview && instance.switchPosition === 'right';
   const { object, material, bounds, visuals, resistorVisuals } = useMemo(() => {
     const object = asset.object.clone(true);
+    if (isLogicIc(modelId) && icRowSpacing !== null) seatIcPins(object, modelId, icRowSpacing);
     if (mounted) seatLedPins(object);
     if (preview && modelId === 'slide-switch') createSlideVisuals(object).apply(previewSwitchRight ? 1 : 0, 0);
     const material = preview
       ? new MeshStandardMaterial({
-          color: invalid ? '#ef4444' : "#3684ef",
+          color: '#ffffff',
           transparent: true,
           opacity: 0.42,
           depthWrite: false,
@@ -57,10 +68,14 @@ export function ModelInstance({
       object.traverse((child) => {
         if (child instanceof Mesh) child.material = material;
       });
-    const visuals = !preview && !isBreadboard(modelId) && modelId !== 'resistor' ? modelId === 'slide-switch' ? createSlideVisuals(object) : createPowerVisuals(object, modelId) : null;
+    const visuals = !preview && !isBreadboard(modelId) && modelId !== 'resistor' && !isLogicIc(modelId) ? modelId === 'slide-switch' ? createSlideVisuals(object) : createPowerVisuals(object, modelId) : null;
     const resistorVisuals = !preview && modelId === 'resistor' ? createResistorVisuals(object) : null;
     return { object, material, bounds: new Box3().setFromObject(object), visuals, resistorVisuals };
-  }, [asset, preview, mounted, invalid, modelId, previewSwitchRight]);
+  }, [asset, preview, mounted, modelId, previewSwitchRight, icRowSpacing]);
+  useEffect(() => {
+    if (material) material.color.set(invalid ? colors.invalid : colors.selected);
+    invalidate();
+  }, [material, invalid, colors, invalidate]);
   usePowerAnimation(visuals, modelId === 'slide-switch' ? instance.switchPosition === 'right' : !!instance.outputEnabled, modelId === 'led' ? brightness : Number(powered), modelId === 'slide-switch' ? 150 : 180);
   const voltage = instance.voltage ?? DEFAULT_VOLTAGE;
   const resistance = instance.resistanceOhms ?? DEFAULT_RESISTANCE;
@@ -92,7 +107,7 @@ export function ModelInstance({
         <mesh position={center} userData={{ pickBounds: true }} raycast={() => null}>
           <boxGeometry args={[x + 0.0008, y + 0.0008, z + 0.0008]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-          <Edges color="#2563eb" raycast={() => null} />
+          <Edges color={colors.selected} raycast={() => null} />
         </mesh>
       )}
     </group>

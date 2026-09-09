@@ -9,8 +9,11 @@ import { terminalLead, terminalPosition, wirePoints } from '../../lib/wireGeomet
 import { Wire } from './Wire';
 import { routingSurface, terminalLabel } from '../../engine/terminals';
 import { terminalStatusLabels } from '../../engine/power';
+import { useTheme, sceneColors } from '../../lib/theme';
 
 export function Connections({ workspace }: { workspace: Workspace }) {
+  const { theme } = useTheme();
+  const colors = sceneColors[theme];
   const { wires, instances, sockets, powerTerminals, selection, draft } = workspace;
   let preview: Point3[] = [];
   if (draft?.preview) {
@@ -24,13 +27,13 @@ export function Connections({ workspace }: { workspace: Workspace }) {
     <group name="placed-wires">{wires.map(wire => <Wire key={wire.id} id={wire.id} points={wirePoints(wire, instances, sockets, powerTerminals)} color={WIRE_COLORS[wire.color]} selected={selection?.kind !== 'component' && selection?.id === wire.id} />)}</group>
     <group name="selected-wire-endpoints">{wires.filter(wire => selection?.kind !== 'component' && selection?.id === wire.id).flatMap(wire => [wire.from, wire.to].map((ref, index) => {
       const point = terminalPosition(ref, instances, sockets, powerTerminals);
-      return point ? <mesh key={`${wire.id}-endpoint-${index}`} position={point} raycast={() => null}><sphereGeometry args={[0.0012, 12, 8]} /><meshBasicMaterial color="#2680ef" transparent opacity={0.75} depthTest={false} depthWrite={false} /></mesh> : null;
+      return point ? <mesh key={`${wire.id}-endpoint-${index}`} position={point} raycast={() => null}><sphereGeometry args={[0.0012, 12, 8]} /><meshBasicMaterial color={colors.selected} transparent opacity={0.75} depthTest={false} depthWrite={false} /></mesh> : null;
     }))}</group>
     <group name="wire-handles">{wires.filter(wire => selection?.kind !== 'component' && selection?.id === wire.id).flatMap(wire => {
       const board = instances.find(instance => instance.id === wire.from.componentId)!;
       return wire.bends.map((bend, index) => <mesh key={`${wire.id}-${index}`} position={localToWorld(board, bend)} userData={{ wireId: wire.id, bendIndex: index }}>
         <sphereGeometry args={[0.00125, 12, 8]} />
-        <meshBasicMaterial color={selection?.kind === 'bend' && selection.index === index ? '#f59e0b' : '#2780ee'} depthTest={false} />
+        <meshBasicMaterial color={selection?.kind === 'bend' && selection.index === index ? colors.hover : colors.selected} depthTest={false} />
       </mesh>);
     })}</group>
     {preview.length > 1 && <Wire preview points={preview} color={draft?.target && !canConnect(workspace, draft.from, draft.target, sockets, powerTerminals) ? '#df4444' : WIRE_COLORS[workspace.wireColor]} />}
@@ -38,6 +41,8 @@ export function Connections({ workspace }: { workspace: Workspace }) {
 }
 
 export function SocketFeedback({ workspace, hover, candidate, hoverSwitch }: { workspace: Workspace; hover: TerminalRef | null; candidate: MountCandidate | null; hoverSwitch?: string }) {
+  const { theme } = useTheme();
+  const colors = sceneColors[theme];
   const mesh = useRef<InstancedMesh>(null);
   const occupied = occupiedSockets(workspace);
   const rings = useMemo(() => {
@@ -46,15 +51,15 @@ export function SocketFeedback({ workspace, hover, candidate, hoverSwitch }: { w
       const board = workspace.instances.find(instance => instance.id === hover.componentId);
       const definitions = socketsFor(board, workspace.sockets);
       const socket = socketById(definitions, hover.terminalId);
-      if (board && socket) for (const member of definitions.filter(item => item.groupId === socket.groupId)) points.push({ point: localToWorld(board, member.position), color: member.id === socket.id ? '#1672f3' : '#94baf0' });
+      if (board && socket) for (const member of definitions.filter(item => item.groupId === socket.groupId)) points.push({ point: localToWorld(board, member.position), color: member.id === socket.id ? colors.selected : colors.hover });
     }
-    if (candidate?.mount || candidate?.switchMount || candidate?.resistorMount) {
-      const board = workspace.instances.find(instance => instance.id === (candidate.mount?.breadboardId ?? candidate.switchMount?.breadboardId ?? candidate.resistorMount?.breadboardId));
-      const ids = candidate.resistorMount?.pins ?? candidate.switchMount?.pins ?? [candidate.mount!.anode, candidate.mount!.cathode];
-      if (board) for (const id of ids) { const socket = socketById(socketsFor(board, workspace.sockets), id); if (socket) points.push({ point: localToWorld(board, socket.position), color: candidate.valid ? '#16a36a' : '#e34646' }); }
+    if (candidate?.mount || candidate?.switchMount || candidate?.resistorMount || candidate?.icMount) {
+      const board = workspace.instances.find(instance => instance.id === (candidate.icMount?.breadboardId ?? candidate.mount?.breadboardId ?? candidate.switchMount?.breadboardId ?? candidate.resistorMount?.breadboardId));
+      const ids = candidate.icMount?.pins ?? candidate.resistorMount?.pins ?? candidate.switchMount?.pins ?? [candidate.mount!.anode, candidate.mount!.cathode];
+      if (board) for (const id of ids) { const socket = socketById(socketsFor(board, workspace.sockets), id); if (socket) points.push({ point: localToWorld(board, socket.position), color: candidate.valid ? colors.selected : colors.invalid }); }
     }
     return points;
-  }, [workspace.instances, workspace.sockets, hover, candidate]);
+  }, [workspace.instances, workspace.sockets, hover, candidate, colors]);
   useLayoutEffect(() => {
     if (!mesh.current) return;
     mesh.current.count = rings.length;

@@ -1,5 +1,6 @@
 import type { Workspace } from "../store/useWorkspace";
 import { Icon } from "./Icon";
+import { isMountable } from '../engine/breadboard';
 
 export function WorkspaceToolbar({
   workspace,
@@ -20,10 +21,10 @@ export function WorkspaceToolbar({
         </span>
         <span className="toolbar-divider" />
         <button
-          disabled={!selected && workspace.placing !== 'led' && workspace.placing !== 'slide-switch' && workspace.placing !== 'resistor'}
+          disabled={!selected && (!workspace.placing || !isMountable(workspace.placing))}
           onClick={workspace.rotate}
           aria-label="Rotate component"
-          title="Rotate (R); LEDs, slide switches and resistors rotate 180°"
+          title="Rotate (R); breadboard-mounted parts and ICs turn 180°"
         >
           <Icon name="rotate" />
           <span>Rotate</span>

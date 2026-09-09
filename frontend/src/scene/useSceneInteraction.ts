@@ -11,6 +11,7 @@ import { isBreadboard, isMountable, socketsFor, SOCKET_PITCH, worldToLocal } fro
 import { mountFlipped, mountedPosition, mountingCandidate } from '../engine/mounting';
 import { wirePoints } from '../lib/wireGeometry';
 import { routingSurface } from '../engine/terminals';
+import { createComponent, withMount } from '../engine/componentFactory';
 
 type Feedback = { preview: ComponentInstance | null; candidate: MountCandidate | null; hover: TerminalRef | null; hiddenId?: string; hoverSwitch?: string };
 type Hit = { id: string; point: Vector3; distance: number; bendIndex?: number };
@@ -129,7 +130,8 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
         const candidate = isMountable(modelId) ? mountCandidate(draggingMountable ? drag!.id : undefined) : null;
         const position = ground ? snapPosition([ground.x + (draggingMountable ? drag!.offset[0] : 0), ground.z + (draggingMountable ? drag!.offset[1] : 0)], current.spacing, current.snap) : [0, 0] as GroundPosition;
         const rotation = draggingMountable ? current.instances.find(instance => instance.id === drag!.id)!.rotation : current.mode.kind === 'component-placement' && current.mode.flipped ? Math.PI : 0;
-        const preview: ComponentInstance | null = ground ? { id: 'preview', modelId, position, rotation, resistorMount: candidate?.valid ? candidate.resistorMount : undefined, resistanceOhms: dragged?.resistanceOhms, switchPosition: dragged?.switchPosition, switchMount: candidate?.valid ? candidate.switchMount : undefined, mount: candidate?.valid ? candidate.mount ?? undefined : undefined } : null;
+        const base = dragged ? { ...dragged, id: 'preview', position, rotation } : createComponent('preview', modelId, position, rotation);
+        const preview = ground ? withMount(base, candidate?.valid ? candidate.mount ?? undefined : undefined, candidate?.valid ? candidate.switchMount : undefined, candidate?.valid ? candidate.resistorMount : undefined, candidate?.valid ? candidate.icMount : undefined) : null;
         dropFeedback = { preview, candidate, hover: null, hiddenId: draggingMountable ? drag!.id : undefined };
         setFeedback(dropFeedback);
       } else { const part = interactivePartHit(); setFeedback({ preview: null, candidate: null, hover: socketHit(), hoverSwitch: part?.switchClick ? part.id : undefined }); }
@@ -154,7 +156,7 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       if (current.placing) {
         stop(event); updatePreview();
         if (dropFeedback?.candidate && !dropFeedback.candidate.valid) { current.setMessage(dropFeedback.candidate.reason); return; }
-        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount, dropFeedback.preview.switchMount, dropFeedback.preview.resistorMount);
+        if (dropFeedback?.preview) current.add(current.placing, dropFeedback.preview.position, dropFeedback.preview.mount, dropFeedback.preview.switchMount, dropFeedback.preview.resistorMount, dropFeedback.preview.icMount);
         setFeedback({ preview: null, candidate: null, hover: null }); return;
       }
       const handle = hit('wire-handles', 'wireId');
@@ -235,7 +237,8 @@ export function useSceneInteraction(workspace: Workspace, controlsRef: RefObject
       if (drag?.moved && drag.bendIndex === undefined && current.instances.some(item => item.id === drag!.id && isMountable(item.modelId))) {
         updatePreview();
         if (dropFeedback?.candidate) {
-          if (dropFeedback.candidate.valid && dropFeedback.candidate.resistorMount) current.attachResistor(drag.id, dropFeedback.candidate.resistorMount);
+          if (dropFeedback.candidate.valid && dropFeedback.candidate.icMount) current.attachIc(drag.id, dropFeedback.candidate.icMount);
+          else if (dropFeedback.candidate.valid && dropFeedback.candidate.resistorMount) current.attachResistor(drag.id, dropFeedback.candidate.resistorMount);
           else if (dropFeedback.candidate.valid && dropFeedback.candidate.switchMount) current.attachSwitch(drag.id, dropFeedback.candidate.switchMount);
           else if (dropFeedback.candidate.valid && dropFeedback.candidate.mount) current.attach(drag.id, dropFeedback.candidate.mount);
           else current.setMessage(dropFeedback.candidate.reason);

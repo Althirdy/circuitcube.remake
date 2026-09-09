@@ -4,7 +4,7 @@ Project Mission
 
 CircuitCube is a browser-based interactive 3D electronics simulator inspired by visual breadboard tools such as Tinkercad.
 
-The application is already beyond the initial asset-viewer stage. The current repository contains a working 3D workspace, two breadboard sizes, dynamic jumper wiring, a logical circuit engine, an interactive DC power supply, LEDs, and an SPDT slide switch.
+The application is already beyond the initial asset-viewer stage. The current repository contains a 3D workspace, two breadboard sizes, dynamic jumper wiring, an interactive DC supply, LEDs, an SPDT slide switch, series resistor/DC behavior, and 7408/7432/7404 digital IC implementation. IC builds and tests are awaiting user execution; do not describe that milestone as browser-verified yet.
 
 Future work must extend the existing architecture instead of rebuilding it.
 
@@ -76,6 +76,8 @@ pointer interaction
 wire rendering
 
 Workspace State
+
+Presentation preferences are separate from circuit state: the theme provider owns system/light/dark resolution and a localStorage override; sidebar accordions own session expansion. Categories are Boards, Power, Basic components, and Logic ICs. Only Boards starts expanded. On the workplane and Jumper wires remain available as collapsed headers with counts. Theme tokens also control canvas background/grid and interaction highlights; do not recolor electrical component assets or persisted wire colors for themes. IC guides use a fixed notch-up SVG reference generated from package definitions and mount sockets, with explicit VCC pin 14/GND pin 7 labels. These UI additions have authored tests and await user-run validation.
     ↓
 component instances
 mount state
@@ -163,6 +165,10 @@ breadboard-large
 power
 led
 slide-switch
+resistor
+ic-7408
+ic-7432
+ic-7404
 
 Source GLBs:
 
@@ -458,11 +464,9 @@ SlideSwitch_Slider_Right_Anchor
 
 Do not hard-code a different travel distance unless the source asset changes.
 
-Resistor Contract — Next Major Component
+Resistor Contract — Runtime Integrated
 
-A resistor source asset has been developed, but it is not yet fully integrated into the runtime catalog and electrical engine.
-
-Treat the resistor as the next major component.
+The resistor is integrated into the catalog, mounting, selectable resistance, color bands and limited series DC evaluator. Exact values and mounting rules are documented in docs/asset-contract.md.
 
 Recommended stable names:
 
@@ -587,29 +591,7 @@ fault
 
 Current Simulation Limits
 
-CircuitCube is currently a logical connectivity simulator, not an analog solver.
-
-It does not yet calculate:
-
-resistance
-
-current
-
-voltage drop
-
-LED forward voltage
-
-power dissipation
-
-current-based brightness
-
-thermal effects
-
-Do not fake these values.
-
-Do not jump directly to SPICE.
-
-The resistor milestone should introduce the smallest useful electrical model first.
+CircuitCube calculates limited series DC current, resistor dissipation, LED forward-drop behavior and current-based brightness. Digital gates are evaluated separately through the shared graph. One series LED/resistor load per digital output supports sourcing or sinking. Unsupported topologies retain unavailable results; no general nodal solver, thermal model or internal IC current model is present. See docs/asset-contract.md for the precise supported boundaries.
 
 Recommended Resistor Simulation Direction
 
@@ -889,21 +871,7 @@ Playwright integration coverage
 
 Next Engineering Work
 
-Integrate resistor into ModelId
-
-Add resistor to modelCatalog
-
-Add resistor to model syncing
-
-Support resistor breadboard mounting
-
-Add resistor component state
-
-Add resistor color-band logic
-
-Introduce resistance/current behavior
-
-Extend LED behavior to use current when appropriate
+User-run validation of the digital IC implementation, including anchor alignment, gate truth tables, output loads, mounting interactions and the pin inspector.
 
 Later
 
@@ -915,9 +883,7 @@ Potentiometers
 
 Push buttons
 
-ICs / logic gates
-
-Digital logic visualization
+Additional IC families, sequential logic, timing and richer digital visualization
 
 Arduino / ESP32
 
@@ -965,9 +931,11 @@ LED
    ↓
 Power -
 
-Milestone 4 — Digital IC Foundation
+Milestone 4 — Digital IC Foundation (implemented; verification pending)
 
-Once resistor/current behavior is stable, begin digital IC work using the existing SPDT switch as a reusable HIGH/LOW input selector.
+7408, 7432 and 7404 use shared DIP mounting and pure digital primitives in engine/digital. IC instances have a separate typed variant; legacy DC fields retain compatibility during the incremental migration. The existing SPDT switch selects HIGH/LOW inputs. Combinational chains, unknown inputs, cycles and contention are explicit. Source/sink output loads are evaluated outside the bench DC solver. Pin definitions and electrical behavior never live in GLBs or React components.
+
+IC source assets have scale 0.01, no axis rotation, 2.54 mm pin pitch and 7.62 mm row spacing. The breadboards have a 9.2 mm e/f gap, so cloned pins and anchors spread 0.79 mm per row when mounted. Preserve bodies, source geometry and stable ICxxxx node names. See docs/asset-contract.md for this intentional asset adaptation.
 
 Coding Standards
 

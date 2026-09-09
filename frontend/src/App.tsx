@@ -6,8 +6,15 @@ import { WorkspaceToolbar } from "./components/WorkspaceToolbar";
 import { Icon } from "./components/Icon";
 import { useWorkspace } from "./store/useWorkspace";
 import "./App.css";
+import { useTheme } from './lib/theme';
+import { ThemeProvider } from './components/ThemeProvider';
+import './theme.css';
 
 function App() {
+  return <ThemeProvider><WorkspaceApp /></ThemeProvider>;
+}
+function WorkspaceApp() {
+  const { theme, toggle } = useTheme();
   const workspace = useWorkspace();
   const [libraryOpen, setLibraryOpen] = useState(false);
   return (
@@ -26,6 +33,9 @@ function App() {
           <Icon name="chevron" size={13} />
           <h1>Untitled circuit</h1>
         </div>
+        <button className="theme-toggle" role="switch" aria-label="Dark mode" aria-checked={theme === 'dark'} onClick={toggle} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+          <Icon name={theme === 'dark' ? 'moon' : 'sun'} /><span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+        </button>
         <div className="session-badge">
           <span />
           Session only

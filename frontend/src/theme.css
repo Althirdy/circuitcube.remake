@@ -1,0 +1,124 @@
+:root, :root[data-theme='light'] {
+  --surface: #ffffff; --surface-soft: #f1f5f9; --canvas: #f1f5f9; --text: #1e293b; --muted: #475569;
+  --border: #cbd5e1; --accent: #0f766e; --accent-soft: #ccfbf1; --accent-text: #115e59;
+  --danger: #b91c1c; --danger-soft: #fef2f2; --warning: #854d0e; --warning-soft: #fef9c3;
+  --success: #166534; --success-soft: #dcfce7; --low: #1e40af; --focus: #0f766e;
+  --blue: var(--accent); --navy: var(--text); --shadow: #0f172a18; --on-accent: #ffffff;
+}
+:root[data-theme='dark'] {
+  --surface: #1e293b; --surface-soft: #0f172a; --canvas: #0f172a; --text: #f1f5f9; --muted: #cbd5e1;
+  --border: #64748b; --accent: #5eead4; --accent-soft: #134e4a; --accent-text: #99f6e4;
+  --danger: #fca5a5; --danger-soft: #450a0a; --warning: #fde68a; --warning-soft: #422006;
+  --success: #86efac; --success-soft: #052e16; --low: #93c5fd; --focus: #5eead4; --shadow: #00000055; --on-accent: #0f172a;
+}
+body, .app-shell { color: var(--text); background: var(--canvas); }
+.app-header, .workspace-toolbar, .component-library, .status-bar, .model-card,
+.selection-panel, .wiring-panel, .wire-context, .ic-floating-guide, .ic-actions,
+.view-presets, .camera-tools, .placement-banner, .loading-banner, .canvas-fallback { background: var(--surface); color: var(--text); border-color: var(--border); }
+.selection-panel, .wiring-panel, .ic-floating-guide { box-shadow: 0 4px 16px var(--shadow); }
+.brand, .project-name h1, .library-heading, .model-copy h3, .workplane-title { color: var(--text); }
+.brand-mark, .model-choice:hover .add-indicator, .is-placing .add-indicator { background: var(--accent); color: var(--on-accent); }
+.library-intro, .model-copy p, .library-note, .library-note > span:last-child, .scene-item, .instance-number,
+.scene-list > p, .ic-details, .ic-model-note, .ic-pin-table td small, .selection-position, .selection-position > span,
+.wiring-panel small, .wiring-heading span, .connection-message, .eyebrow, .controls-hint, .status-bar,
+.power-output-state, .led-power-state, .electrical-assumption, .voltage-control small { color: var(--muted); }
+.session-badge, .library-heading h2 > span, .ic-gate-summary, .ic-status, .wire-actions button, .bend-list button, .wire-context button { background: var(--surface-soft); color: var(--text); border-color: var(--border); }
+.theme-toggle { margin-left: auto; display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 22px; padding: 0 14px; min-height: 44px; color: var(--accent); white-space: nowrap; }
+.session-badge { margin-left: 0; }
+.component-library { scrollbar-color: var(--border) transparent; }
+.library-intro { font-size: 14px; margin-bottom: 16px; }
+.library-section { flex-shrink: 0; border-bottom: 1px solid var(--border); }
+.library-section [hidden] { display: none; }
+.library-disclosure { display: flex; align-items: center; gap: 8px; min-height: 52px; width: 100%; text-align: left; padding: 8px 2px; font-size: 14px; flex-wrap: wrap; }
+.section-count { margin-left: auto; padding: 2px 6px; background: var(--surface-soft); border-radius: 5px; font-size: 12px; }
+.section-selected { font-size: 12px; color: var(--accent); }
+.section-error { font-size: 12px; color: var(--danger); }
+.disclosure-chevron { display: flex; transition: transform 150ms; }
+.disclosure-chevron.expanded { transform: rotate(90deg); }
+.library-section .model-list { padding: 0 0 14px; }
+.library-section .scene-list { margin: 0; padding-bottom: 10px; }
+.circuit-contents-heading { display: flex; align-items: center; gap: 8px; margin: 24px 0 8px; color: var(--muted); font-size: 14px; }
+.model-copy h3, .model-copy p, .scene-item, .wire-item, .add-center, .asset-error, .asset-error button, .library-note { font-size: 14px; }
+.model-copy p { line-height: 1.5; }
+.model-card, .add-center, .ic-guide, .ic-pin-table th, .ic-pin-table td { border-color: var(--border); }
+.model-thumbnail { background: #f4f6f8; }
+.model-thumbnail img { mix-blend-mode: normal; }
+.asset-placeholder { color: #475569; }
+.add-center { min-height: 44px; color: var(--accent); }
+.scene-item, .wire-item { min-height: 44px; }
+.scene-item > span:first-of-type { white-space: normal; overflow-wrap: anywhere; }
+.scene-item:hover, .model-card:hover, .library-disclosure:hover, .theme-toggle:hover, .selection-panel button:hover,
+.toolbar-group > button:not(:disabled):hover, .view-presets button:hover, .camera-tools button:hover { background: var(--surface-soft); border-color: var(--accent); }
+.scene-item.selected, .wire-item[aria-pressed='true'], .tool-mode, .bend-list button[aria-pressed='true'],
+.voltage-presets button[aria-pressed='true'], .add-center:hover:not(:disabled) { color: var(--accent-text); background: var(--accent-soft); }
+.asset-error, .component-warning, .logic-fault { color: var(--danger); }
+.invalid, .ic-status-fault { color: var(--danger); background: var(--danger-soft); }
+.power-faults, .electrical-warning { color: var(--warning); background: var(--warning-soft); border-color: var(--warning); }
+.logic-high, .mounted-info { color: var(--success); }
+.power-output-state[data-state='on'], .led-power-state[data-state='on'] { color: var(--success); }
+.power-output-state[data-state='short-circuit'], .power-output-state[data-state='multiple-supplies'], .led-power-state[data-state='fault'] { color: var(--danger); }
+.logic-low { color: var(--low); }
+.logic-unknown { color: var(--warning); }
+.ic-status-ready, .selection-panel .power-toggle[aria-pressed='true'] { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+.socket-label, .mount-feedback { color: var(--accent-text); background: var(--surface); }
+.socket-label.invalid, .mount-feedback.invalid { color: var(--danger); background: var(--danger-soft); }
+.selection-panel button, .ic-floating-guide button { color: var(--accent); border-color: var(--border); }
+.ic-details, .ic-guide-content, .ic-pin-table, .ic-floating-guide, .component-readings, .wire-readings { font-size: 14px; line-height: 1.5; }
+.ic-details summary, .ic-guide-content summary, .ic-floating-guide summary, .ic-all-pins > summary { color: var(--accent); min-height: 44px; }
+.selection-panel .ic-actions button, .ic-floating-guide-heading button, .selection-panel button,
+.wire-actions button, .wire-context button, .bend-list button, .view-presets button, .toolbar-group > button, .camera-tools button { min-height: 44px; }
+.ic-pin-table th:first-child { width: 30px; }
+.ic-pin-table th:nth-child(3) { width: 46px; }
+input, select { color: var(--text); background: var(--surface-soft); border: 1px solid var(--border); min-height: 44px; }
+.voltage-control input, .resistor-control select, .wire-height input { color: var(--text); background: var(--surface-soft); border-color: var(--border); }
+.component-readings, .wire-readings, .resistor-control, .voltage-control, .switch-state { color: var(--text); font-size: 14px; }
+.mounted-info, .component-readings small, .wire-readings small, .voltage-control small, .electrical-assumption, .ic-model-note,
+.selection-panel .voltage-presets button, .power-output-state, .led-power-state, .connection-message { font-size: 14px; line-height: 1.5; }
+.ic-guide summary:focus-visible, .ic-pin-reason summary:focus-visible, .ic-all-pins > summary:focus-visible,
+.ic-floating-guide button:focus-visible, .ic-guide-content summary:focus-visible, .ic-floating-guide summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.toolbar-group > button, .camera-tools button, .selection-panel button, .close-library { min-width: 44px; min-height: 44px; }
+.wire-colors { gap: 6px; flex-wrap: wrap; }
+.wire-colors button { width: 44px; height: 44px; border: 9px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.wire-colors button[aria-pressed='true'] { outline-color: var(--focus); }
+.workspace-inspectors { position: absolute; right: 16px; bottom: 64px; max-height: calc(100% - 160px); width: 400px; max-width: calc(100% - 32px); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; z-index: 2; }
+.workspace-inspectors > .selection-panel, .workspace-inspectors > .wiring-panel, .workspace-inspectors > .ic-floating-guide,
+.workspace-inspectors > .power-faults { position: static; width: 100%; max-width: none; max-height: none; overflow: visible; flex-shrink: 0; }
+.workspace-inspectors > .power-faults { order: -2; pointer-events: auto; }
+.workspace-inspectors > .ic-floating-guide { order: -1; }
+.workspace-inspectors > .connection-message { position: static; max-width: none; order: 3; padding: 6px 10px; background: var(--surface); border-radius: 6px; }
+.workspace-inspectors .ic-floating-guide .ic-guide-content { max-height: none; overflow: visible; }
+.workspace-inspectors .ic-actions { position: static; }
+.ic-picture-disclosure { border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, main:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.ic-diagram { margin: 12px 0; padding: 8px; border: 1px solid var(--border); background: var(--surface-soft); border-radius: 8px; }
+.ic-diagram figcaption { font-weight: 600; }
+.ic-diagram svg { width: 100%; display: block; height: auto; }
+.ic-diagram p { margin: 8px 0; font-size: 14px; }
+.diagram-body { fill: var(--surface); stroke: var(--muted); stroke-width: 2; }
+.diagram-notch { fill: none; stroke: var(--muted); stroke-width: 2; }
+.diagram-dot { fill: var(--text); }
+.diagram-pin rect { fill: var(--border); stroke: var(--text); }
+.diagram-label, .diagram-number, .diagram-chip-label { fill: var(--text); font-size: 18px; }
+.diagram-socket { fill: var(--muted); font-size: 18px; }
+.diagram-vcc rect { fill: var(--danger); }
+.diagram-vcc .diagram-label { fill: var(--danger); font-weight: 700; }
+.diagram-ground rect { fill: #475569; stroke: var(--text); stroke-width: 2; }
+.diagram-ground .diagram-label { font-weight: 700; }
+.diagram-input rect, .diagram-output rect { fill: var(--accent); }
+.diagram-input .diagram-label, .diagram-output .diagram-label { fill: var(--accent); }
+@media (max-width: 800px) { .component-library { width: min(360px, calc(100vw - 32px)); } }
+@media (max-width: 520px) {
+  .app-header { gap: 10px; padding: 0 12px; }
+  .project-name { display: none; }
+  .theme-toggle { padding: 0 10px; }
+  .ic-pin-table { font-size: 13px; }
+  .ic-pin-table th:nth-child(2) { width: 28%; }
+  .ic-actions { top: -10px; }
+  .wire-colors { gap: 4px; flex-wrap: wrap; }
+  .wire-colors button { width: 44px; height: 44px; }
+  .workspace-inspectors { right: 12px; bottom: 54px; max-width: calc(100% - 24px); max-height: 52%; }
+  .workspace-toolbar { padding: 0 6px; gap: 4px; }
+  .toolbar-group > button { padding: 0 6px; }
+  .toolbar-divider { display: none; }
+  .tool-mode { padding: 0 5px; }
+}

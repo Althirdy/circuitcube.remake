@@ -2,8 +2,10 @@ import { useEffect, useMemo } from 'react';
 import { BackSide, TubeGeometry } from 'three';
 import type { Point3 } from '../../types/workspace';
 import { roundedWireCurve } from '../../lib/wireGeometry';
+import { useTheme, sceneColors } from '../../lib/theme';
 
 export function Wire({ points, color, selected, preview, id }: { points: Point3[]; color: string; selected?: boolean; preview?: boolean; id?: string }) {
+  const { theme } = useTheme();
   // The serialized route keeps geometry stable when unrelated components or UI change.
   const route = JSON.stringify(points);
   const geometry = useMemo(() => {
@@ -15,6 +17,6 @@ export function Wire({ points, color, selected, preview, id }: { points: Point3[
   useEffect(() => () => outline?.dispose(), [outline]);
   return <group><mesh userData={{ wireId: id }} raycast={preview ? () => null : undefined}>
     <primitive object={geometry} attach="geometry" dispose={null} />
-    <meshStandardMaterial color={color} roughness={0.45} transparent={preview} opacity={preview ? 0.6 : 1} emissive={selected ? '#134184' : '#000000'} emissiveIntensity={selected ? 0.3 : 0} />
-  </mesh>{outline && <mesh raycast={() => null}><primitive object={outline} attach="geometry" dispose={null} /><meshBasicMaterial color="#2680ef" side={BackSide} transparent opacity={0.8} depthWrite={false} /></mesh>}</group>;
+    <meshStandardMaterial color={color} roughness={0.45} transparent={preview} opacity={preview ? 0.6 : 1} emissive={selected ? sceneColors[theme].selected : '#000000'} emissiveIntensity={selected ? 0.3 : 0} />
+  </mesh>{outline && <mesh raycast={() => null}><primitive object={outline} attach="geometry" dispose={null} /><meshBasicMaterial color={sceneColors[theme].selected} side={BackSide} transparent opacity={0.8} depthWrite={false} /></mesh>}</group>;
 }

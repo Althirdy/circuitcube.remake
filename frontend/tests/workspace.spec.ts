@@ -2,10 +2,12 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { createHomeBounds } from "../src/lib/cameraFraming";
 import { Vector3 } from "three";
+import { openLibrarySections } from './helpers/library';
 
 async function ready(page: Page) {
   await page.goto("/");
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(6);
+  await openLibrarySections(page);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(9);
   await expect(page.locator(".scene-item")).toHaveCount(3);
   await expect(
     page.getByRole("button", { name: "Place Breadboard", exact: true }),
@@ -22,7 +24,8 @@ test("renders the actual assets, independent copies, and keyboard editing", asyn
   await page.screenshot({ path: "artifacts/workspace-desktop.png" });
   for (const card of await page.locator(".model-card").all())
     await card.getByRole("button", { name: "Add at view center" }).click();
-  await expect(page.locator(".scene-item")).toHaveCount(9);
+  await expect(page.locator(".scene-item")).toHaveCount(12);
+  await page.locator('.scene-item').filter({ hasText: 'Slide Switch' }).click();
   await expect(page.locator(".selection-panel")).toContainText("Slide Switch");
   await page.keyboard.press("r");
   await expect(page.locator(".selection-position")).toContainText("180°");
@@ -39,7 +42,7 @@ test("renders the actual assets, independent copies, and keyboard editing", asyn
     beforeFreeMove,
   );
   await page.keyboard.press("Delete");
-  await expect(page.locator(".scene-item")).toHaveCount(8);
+  await expect(page.locator(".scene-item")).toHaveCount(11);
   await page.locator(".scene-item").filter({ hasText: "LED" }).first().click();
   await expect(page.locator(".selection-position")).toContainText("0°");
   await page.getByRole("button", { name: "Focus selected component" }).click();
@@ -187,13 +190,14 @@ for (const [id, label] of [["power", "Bench DC Power Supply"], ["breadboard-larg
     block ? route.abort() : route.continue(),
   );
   await page.goto("/");
+  await openLibrarySections(page);
   await expect(page.locator(".asset-error")).toContainText(
     "Model could not load",
   );
   await expect(
     page.getByRole("button", { name: "Place Breadboard", exact: true }),
   ).toBeEnabled();
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(5);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(8);
   await page
     .locator('.model-card')
     .filter({ has: page.getByRole('button', { name: 'Place Breadboard', exact: true }) })
@@ -202,7 +206,7 @@ for (const [id, label] of [["power", "Bench DC Power Supply"], ["breadboard-larg
   await expect(page.locator(".scene-item")).toHaveCount(4);
   block = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.locator(".model-thumbnail img")).toHaveCount(6);
+  await expect(page.locator(".model-thumbnail img")).toHaveCount(9);
   await expect(page.locator(".scene-item")).toHaveCount(4);
   await expect(
     page.getByRole("button", {

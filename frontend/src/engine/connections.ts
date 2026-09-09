@@ -2,10 +2,14 @@ import type { Layout, LedMount, ResistorMount, SocketSource, SwitchMount, Termin
 import { isBreadboard, mountPosition, socketById, socketsFor, switchMountPosition } from './breadboard';
 import { resistorMountPosition } from './resistor';
 import { terminalDefinition } from './terminals';
+import { icMountPosition } from './icMounting';
 
 export const terminalKey = (ref: TerminalRef) => `${ref.componentId}:${ref.terminalId}`;
 export function occupiedSockets(layout: Layout, ignoreLedId?: string): Set<string> {
   const occupied = new Set<string>();
+  for (const instance of layout.instances) if (instance.icMount && instance.id !== ignoreLedId) {
+    for (const pin of instance.icMount.pins) occupied.add(`${instance.icMount.breadboardId}:${pin}`);
+  }
   for (const wire of layout.wires) { occupied.add(terminalKey(wire.from)); occupied.add(terminalKey(wire.to)); }
   for (const instance of layout.instances) if (instance.mount && instance.id !== ignoreLedId) {
     occupied.add(terminalKey({ componentId: instance.mount.breadboardId, terminalId: instance.mount.anode }));
@@ -45,6 +49,10 @@ export function mountLed(layout: Layout, id: string, mount: LedMount, sockets: S
 }
 export function detachMounted(layout: Layout, id: string, sockets: SocketSource): Layout {
   return { ...layout, instances: layout.instances.map(instance => {
+    if (instance.id === id && instance.icMount) {
+      const pose = icMountPosition(instance.icMount, layout.instances, sockets);
+      return { ...instance, icMount: undefined, position: pose ? [pose.position[0], pose.position[2]] as [number, number] : instance.position, rotation: pose?.rotation ?? instance.rotation };
+    }
     if (instance.id !== id || (!instance.mount && !instance.switchMount && !instance.resistorMount)) return instance;
     const pose = instance.resistorMount ? resistorMountPosition(instance.resistorMount, layout.instances, sockets) : instance.switchMount ? switchMountPosition(instance.switchMount, layout.instances, sockets) : mountPosition(instance.mount!, layout.instances, sockets);
     return { ...instance, mount: undefined, switchMount: undefined, resistorMount: undefined, position: pose ? [pose.position[0], pose.position[2]] : instance.position, rotation: pose?.rotation ?? instance.rotation };
@@ -55,7 +63,7 @@ export const detachLed = detachMounted;
 
 export function removeComponent(layout: Layout, id: string, sockets: SocketSource): Layout {
   let next = layout;
-  for (const instance of layout.instances) if (instance.mount?.breadboardId === id || instance.switchMount?.breadboardId === id || instance.resistorMount?.breadboardId === id) next = detachMounted(next, instance.id, sockets);
+  for (const instance of layout.instances) if (instance.icMount?.breadboardId === id || instance.mount?.breadboardId === id || instance.switchMount?.breadboardId === id || instance.resistorMount?.breadboardId === id) next = detachMounted(next, instance.id, sockets);
   return { instances: next.instances.filter(instance => instance.id !== id), wires: next.wires.filter(wire => wire.from.componentId !== id && wire.to.componentId !== id) };
 }
 

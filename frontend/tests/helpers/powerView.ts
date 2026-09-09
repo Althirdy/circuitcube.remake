@@ -8,10 +8,12 @@ import { componentBounds } from '../../src/lib/componentPose';
 import { createDemo } from '../../src/lib/placement';
 import { localToWorld } from '../../src/engine/breadboard';
 import type { LoadedAsset, ModelId, Point3 } from '../../src/types/workspace';
+import { openLibrarySections } from './library';
 
 export async function powerView(page: Page, focusPower = false) {
   await page.goto('/');
-  await expect(page.locator('.model-thumbnail img')).toHaveCount(6);
+  await expect(page.locator('.model-thumbnail img')).toHaveCount(9);
+  await openLibrarySections(page);
   const models = {} as Record<ModelId, LoadedAsset>;
   for (const id of ['breadboard', 'breadboard-large', 'power', 'led'] as const) {
     const bytes = await readFile(new URL(`../../../models/${id}.glb`, import.meta.url));

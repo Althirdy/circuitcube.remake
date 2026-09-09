@@ -41,6 +41,14 @@ export function circuitGraph(layout: Layout, sockets: SocketSource, powerTermina
     if (a && b) ideal.push({ id: `switch:${instance.id}`, a, b });
   }
   for (const edge of ideal) nets.join(edge.a, edge.b);
+  // Package pins alias their mounted sockets; pins are never joined together.
+  const icPins = new Map<string, string>();
+  for (const instance of layout.instances) if (instance.icMount) {
+    instance.icMount.pins.forEach((socket, index) => {
+      const node = terminalNodes.get(`${instance.icMount!.breadboardId}:${socket}`);
+      if (node) icPins.set(`${instance.id}:${index + 1}`, node);
+    });
+  }
   const loads: Load[] = [];
   for (const instance of layout.instances) {
     const refs = instance.modelId === 'led' && instance.mount ? [instance.mount.breadboardId, instance.mount.anode, instance.mount.cathode]
@@ -57,8 +65,9 @@ export function circuitGraph(layout: Layout, sockets: SocketSource, powerTermina
   for (const node of terminalNodes.values()) circuits.find(nets.find(node));
   for (const load of loads) circuits.join(load.a, load.b);
   for (const supply of supplies) if (supply.instance.outputEnabled) circuits.join(supply.a, supply.b);
-  return { terminalNodes, nets, ideal, loads, supplies, circuits };
+  return { terminalNodes, nets, ideal, loads, supplies, circuits, icPins };
 }
+export type CircuitGraph = ReturnType<typeof circuitGraph>;
 
 export function adjacency<T extends Edge>(edges: T[]) {
   const result = new Map<string, T[]>();

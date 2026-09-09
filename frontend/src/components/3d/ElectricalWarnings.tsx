@@ -4,7 +4,8 @@ import { componentPose } from '../../lib/componentPose';
 
 export function ElectricalWarnings({ workspace }: { workspace: Workspace }) {
   return <>{workspace.instances.map(instance => {
-    const warning = workspace.power.components[instance.id]?.warning;
+    const chip = workspace.digital.chips[instance.id];
+    const warning = workspace.power.components[instance.id]?.warning ?? (chip?.status === 'fault' ? 'IC wiring fault · select the IC for details' : null);
     const state = workspace.assets[instance.modelId];
     if (!warning || state.status !== 'ready') return null;
     const pose = componentPose(instance, state.asset, workspace.instances, workspace.sockets);

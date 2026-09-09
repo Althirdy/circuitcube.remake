@@ -17,6 +17,14 @@ The workspace starts with an unwired full-size breadboard, an off bench DC power
 
 ## Controls
 
+The top-bar Light/Dark switch follows your system theme until you choose a mode, then remembers that choice locally. Changing theme preserves the current circuit, camera and wiring operation. Electrical component colors and chosen wire colors do not change.
+
+The right library groups parts into Boards, Power, Basic components and Logic ICs. Only Boards starts open. On the workplane and Jumper wires start collapsed, show counts even when empty, and keep selected-item indicators visible. Expand their headers to select a component or wire; collapsing never hides circuit objects. Disclosure choices last for the session.
+
+IC guides include a labeled top-view picture: pin 14 is VCC (+5 V), pin 7 is GND (0 V / supply −), and the notch identifies the pin-1 end. The picture is a fixed reference rather than the camera view; socket labels follow mounting and rotation. These polarity labels describe intended connections, while the inspector reports live states.
+
+Open **Pin picture · find VCC (+) and GND (−)** inside the wiring guide to see the diagram. Wiring steps stay above it. On smaller screens, the persistent guide starts collapsed. Inspectors, warnings and the guide share one bounded scroll area so editing controls do not sit behind another panel.
+
 | Action                        | Control                                                                        |
 | ----------------------------- | ------------------------------------------------------------------------------ |
 | Add a component               | Click its library card, then click the grid                                    |
@@ -25,7 +33,7 @@ The workspace starts with an unwired full-size breadboard, an off bench DC power
 | Select                        | Click a model or its entry under **On the workplane**                          |
 | Move                          | Drag a component across the ground plane                                       |
 | Keyboard move                 | Arrow keys move along world X/Z; one grid step with snapping, 0.1 step without |
-| Rotate                        | R or Rotate; 90° around vertical Y; LEDs, resistors and slide switches turn by 180° |
+| Rotate                        | R or Rotate; 90° around vertical Y; LEDs, resistors, ICs and slide switches turn by 180° |
 | Delete                        | Delete key or Delete button                                                    |
 | Orbit                         | Left-drag empty workspace                                                      |
 | Pan                           | Right-drag or Shift + left-drag                                                |
@@ -41,6 +49,9 @@ The workspace starts with an unwired full-size breadboard, an off bench DC power
 | Switch position               | Click the slider/grip or use the selected component's Switch position button   |
 | Detach a slide switch         | Drag onto empty ground or use Detach switch                                    |
 | Insert a resistor             | Place five column intervals apart in one terminal row, such as e10–e15        |
+| Insert a logic IC             | Click over the center gap at the first of seven free columns (rows e/f)       |
+| Move a mounted IC             | Left/Right shifts a column; R turns 180°; drag onto ground or Detach IC to remove |
+| Inspect an IC                 | Select it for the wiring guide, numbered pin map, states and fault explanations |
 | Resistance                    | Select 220 Ω through 10 kΩ in the component panel                              |
 | Supply voltage                | Edit 0–12 V in 0.1 V steps, or choose a preset                                  |
 | Wire readings                 | Select a wire for endpoint highlights, potential and available current          |
@@ -60,7 +71,7 @@ See the [asset and power contract](../docs/asset-contract.md) for anchor derivat
 
 ## Assets and architecture
 
-- The source assets remain in `../models/`. `npm run sync:models` copies the six catalog GLBs into `public/models/`; development and production builds run this automatically. The generated copies are ignored by Git.
+- The source assets remain in `../models/`. `npm run sync:models` copies the nine catalog GLBs into `public/models/`; development and production builds run this automatically. The generated copies are ignored by Git.
 - `src/lib/modelCatalog.ts` defines the typed catalog, asset URLs, and runtime transforms. `power.glb` retains its source filename.
 - `src/scene/` owns loading, canvas, camera, and pointer interaction. `src/components/3d/` renders independent instances. `src/store/` owns React state and initialization; it contains no electrical simulation logic.
 - Both breadboards, the supply, and LED use scale **0.1**. The slide switch and resistor use scale **1** and **+90° X rotation** because these assets already use physical dimensions. Switch pins have 2.54 mm pitch and resistor endpoints span 12.7 mm. All render in a Y-up scene with an XZ ground plane. Bounds center each model horizontally and place its lowest point on the grid. Source geometry, materials, hierarchy, and named anchors are preserved.
@@ -71,6 +82,10 @@ See the [asset and power contract](../docs/asset-contract.md) for anchor derivat
 - Failed assets have individual retry buttons. Initialization failures and lost WebGL contexts show a reload fallback.
 
 ## Verify
+
+The 7408 AND, 7432 OR and 7404 NOT ICs are implemented with authored tests; build/test/browser execution is pending user verification. Set the supply to 5 V, connect VCC pin 14 and GND pin 7, then connect the gate’s inputs to HIGH (+5 V) or LOW (ground). The inspector suggests free holes beside the pins. Use a slide switch to select an input and chain outputs into other gates as needed. A HIGH output can light a resistor/LED path to ground; a LOW output can sink a path from VCC. Always include a limiting resistor.
+
+ICs use an educational TTL model, with four explicit states: HIGH, LOW, UNKNOWN and FAULT. Floating inputs and feedback loops are unresolved; conflicting drivers are faults. Outputs are idealized, and package current limits, fan-out and timing are not simulated. IC supply current readings are unavailable; supported output-load currents are calculated. Each output supports one series resistor/LED path. IC source assets use scale 0.01 with no axis rotation. Their cloned pins spread to fit the boards’ center gap; source geometry remains intact. See the asset contract for exact mounting and electrical limits.
 
 ```powershell
 npm.cmd run lint

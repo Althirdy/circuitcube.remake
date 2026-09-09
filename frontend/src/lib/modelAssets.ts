@@ -17,6 +17,8 @@ import type { Point3 } from '../types/workspace';
 import { createResistorVisuals } from './resistorVisuals';
 import { DEFAULT_RESISTANCE } from '../engine/resistor';
 import { preparePowerTerminals } from './powerAsset';
+import { isLogicIc } from '../engine/digital/logicIcDefinitions';
+import { validateIcAnchors } from './icAsset';
 
 export function prepareModel(scene: Object3D, model: ModelDefinition) {
   const transformed = new Group();
@@ -30,6 +32,7 @@ export function prepareModel(scene: Object3D, model: ModelDefinition) {
   const object = new Group();
   object.add(transformed);
   object.updateMatrixWorld(true);
+  if (isLogicIc(model.id)) validateIcAnchors(object, model.id);
   const sockets = isBreadboard(model.id) ? sourceSockets(model.id).map(socket => ({ ...socket, position: new Vector3(...socket.position).applyMatrix4(transformed.matrixWorld).toArray() as Point3 })) : undefined;
   if (model.id === 'slide-switch') {
     for (const name of ['SlideSwitch_Slider', 'SlideSwitch_Slider_Grip']) {

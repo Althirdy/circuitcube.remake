@@ -1,4 +1,6 @@
 import { lazy, Suspense } from "react";
+import { isLogicIc, isLogicIcInstance } from '../engine/digital/logicIcDefinitions';
+import { PersistentIcGuide } from './PersistentIcGuide';
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Icon } from "./Icon";
 import { modelCatalog, modelLabel } from "../lib/modelCatalog";
@@ -21,6 +23,7 @@ export function Workplane({ workspace }: { workspace: Workspace }) {
   );
   const mountedPose = selected ? mountedPosition(selected, workspace.instances, workspace.sockets) : null;
   const selectedPosition = mountedPose ? [mountedPose.position[0], mountedPose.position[2]] : selected?.position;
+  const guideIc = workspace.instances.filter(isLogicIcInstance).find(instance => instance.id === workspace.icGuideId && instance.id !== selected?.id);
   const faults = workspace.instances.filter(instance => instance.modelId === 'power' && ['short-circuit', 'multiple-supplies'].includes(workspace.power.supplies[instance.id]));
   const ready = Object.values(workspace.assets).filter(
     (asset) => asset.status === "ready",
@@ -101,18 +104,24 @@ export function Workplane({ workspace }: { workspace: Workspace }) {
           <Icon name="plus" />
           <div>
             Placing <strong>{modelLabel(workspace.placing)}</strong>
-            <small>{workspace.placing === 'resistor' ? 'Click endpoints five column intervals apart · R reverses orientation' : workspace.placing === 'slide-switch' ? 'Click three adjacent terminal holes to insert · R reverses pin order' : workspace.placing === 'led' ? 'Click two adjacent terminal holes to insert · R flips polarity' : 'Move onto the grid and click to place'}</small>
+            <small>{isLogicIc(workspace.placing) ? 'Click across the center gap (rows e/f) · needs seven free columns · R turns 180°' : workspace.placing === 'resistor' ? 'Click endpoints five column intervals apart · R reverses orientation' : workspace.placing === 'slide-switch' ? 'Click three adjacent terminal holes to insert · R reverses pin order' : workspace.placing === 'led' ? 'Click two adjacent terminal holes to insert · R flips polarity' : 'Move onto the grid and click to place'}</small>
           </div>
           <button onClick={() => workspace.setPlacing(null)}>
             Cancel <kbd>Esc</kbd>
           </button>
         </div>
       )}
+      <div className="workspace-inspectors" aria-label="Circuit details and guidance">
       {selected && !workspace.placing && (
-        <div className="selection-panel">
+        <div className={`selection-panel${isLogicIc(selected.modelId) ? ' ic-selection-panel' : ''}`}>
           <div>
             <span className="eyebrow">SELECTED COMPONENT</span>
             <strong>{modelLabel(selected.modelId)}</strong>
+            {isLogicIc(selected.modelId) && <div className="ic-actions">
+              <button aria-label="Focus selected component" onClick={() => camera('selection')}>Focus IC</button>
+              {selected.icMount && <button onClick={() => workspace.detach(selected.id)}>Detach IC</button>}
+              <button onClick={() => { workspace.closeIcGuide(); workspace.select(null); }}>Close IC details</button>
+            </div>}
             {selected.resistorMount && <span className="mounted-info">Inserted: {selected.resistorMount.pins[0]} ↔ {selected.resistorMount.pins[1]}</span>}
             <ElectricalDetails instance={selected} workspace={workspace} />
             {selected.switchMount && <span className="mounted-info">Inserted: 1 {selected.switchMount.pins[0]} / 2 common {selected.switchMount.pins[1]} / 3 {selected.switchMount.pins[2]}</span>}
@@ -132,17 +141,19 @@ export function Workplane({ workspace }: { workspace: Workspace }) {
           {selected.modelId === 'slide-switch' && <button className="switch-toggle" aria-label="Switch position" aria-pressed={selected.switchPosition === 'right'} onClick={() => workspace.toggleSwitch(selected.id)}>Slide {selected.switchPosition === 'right' ? 'left' : 'right'}</button>}
           {selected.mount && <button className="detach-led" onClick={() => workspace.detach(selected.id)}>Detach LED</button>}
           {selected.modelId === 'power' && <button className="power-toggle" aria-label="Output on/off" aria-pressed={!!selected.outputEnabled} disabled={workspace.assets.power.status !== 'ready'} onClick={() => workspace.togglePower(selected.id)}>{selected.outputEnabled ? 'Turn off' : 'Turn on'}</button>}
-          <button
+          {!isLogicIc(selected.modelId) && <button
             aria-label="Focus selected component"
             title="Focus selected component"
             onClick={() => camera("selection")}
           >
             <Icon name="focus" />
-          </button>
+          </button>}
         </div>
       )}
       <WiringPanel workspace={workspace} />
+      {guideIc && !workspace.placing && <PersistentIcGuide key={guideIc.id} instance={guideIc} workspace={workspace} />}
       {faults.length > 0 && <div className="power-faults" role="alert">{faults.map(instance => <p key={instance.id}>Supply {workspace.instances.indexOf(instance) + 1}: {powerLabels[workspace.power.supplies[instance.id]]} — output suppressed. Fix the wiring or turn it off.</p>)}</div>}
+      </div>
       <div className="controls-hint">
         <Icon name="mouse" size={15} />
         <span>Drag to orbit</span>

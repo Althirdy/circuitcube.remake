@@ -4,6 +4,8 @@ import type { Workspace } from '../store/useWorkspace';
 import { DEFAULT_RESISTANCE, DEFAULT_VOLTAGE, RESISTANCE_VALUES, resistanceLabel, validVoltage } from '../engine/resistor';
 
 import { currentLabel, voltageLabel } from '../lib/electricalFormatting';
+import { isLogicIcInstance } from '../engine/digital/logicIcDefinitions';
+import { IcDetails } from './IcDetails';
 
 function VoltageControl({ instance, workspace }: { instance: ComponentInstance; workspace: Workspace }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -26,6 +28,7 @@ function VoltageControl({ instance, workspace }: { instance: ComponentInstance; 
 
 export function ElectricalDetails({ instance, workspace }: { instance: ComponentInstance; workspace: Workspace }) {
   const reading = workspace.power.components[instance.id];
+  if (isLogicIcInstance(instance)) return <IcDetails instance={instance} workspace={workspace} />;
   return <>
     {instance.modelId === 'power' && <VoltageControl key={instance.id} instance={instance} workspace={workspace} />}
     {instance.modelId === 'resistor' && <div className="resistor-control">

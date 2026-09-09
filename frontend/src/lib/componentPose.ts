@@ -2,9 +2,23 @@ import { Box3, Mesh, Vector3 } from 'three';
 import type { Group } from 'three';
 import type { ComponentInstance, LoadedAsset, SocketSource } from '../types/workspace';
 import { resistorMountPosition } from '../engine/resistor';
-import { mountPosition, switchMountPosition } from '../engine/breadboard';
+import { mountPosition, socketById, socketsFor, switchMountPosition } from '../engine/breadboard';
+import { icMountPosition } from '../engine/icMounting';
+import { isLogicIc, logicIcDefinitions } from '../engine/digital/logicIcDefinitions';
+import { IC_INSERTION_DEPTH, seatIcPins } from './icAsset';
 
 export function componentPose(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketSource) {
+  if (instance.icMount && isLogicIc(instance.modelId)) {
+    const mounted = icMountPosition(instance.icMount, instances, sockets);
+    const prefix = logicIcDefinitions[instance.modelId].prefix;
+    const first = asset.object.getObjectByName(`${prefix}_Anchor_1`);
+    const opposite = asset.object.getObjectByName(`${prefix}_Anchor_8`);
+    if (mounted && first && opposite) {
+      asset.object.updateMatrixWorld(true);
+      const center = first.getWorldPosition(new Vector3()).add(opposite.getWorldPosition(new Vector3())).multiplyScalar(0.5).applyAxisAngle(new Vector3(0, 1, 0), mounted.rotation);
+      return { position: new Vector3(...mounted.position).add(new Vector3(0, -IC_INSERTION_DEPTH, 0)).sub(center), rotation: mounted.rotation };
+    }
+  }
   if (instance.resistorMount) {
     const mounted = resistorMountPosition(instance.resistorMount, instances, sockets);
     const left = asset.object.getObjectByName('Resistor_Left_Anchor'), right = asset.object.getObjectByName('Resistor_Right_Anchor');
@@ -49,6 +63,12 @@ export function seatLedPins(object: Group) {
 export function componentBounds(instance: ComponentInstance, asset: LoadedAsset, instances: ComponentInstance[], sockets: SocketSource) {
   const pose = componentPose(instance, asset, instances, sockets);
   const object = asset.object.clone(true);
+  if (instance.icMount && isLogicIc(instance.modelId)) {
+    const definitions = socketsFor(instances.find(board => board.id === instance.icMount?.breadboardId), sockets);
+    const first = socketById(definitions, instance.icMount.pins[0]);
+    const last = socketById(definitions, instance.icMount.pins[13]);
+    if (first && last) seatIcPins(object, instance.modelId, Math.abs(first.position[2] - last.position[2]));
+  }
   if (instance.mount) seatLedPins(object);
   const wrapper = object.clone(false);
   wrapper.clear(); wrapper.add(object); wrapper.position.copy(pose.position); wrapper.rotation.y = pose.rotation;

@@ -989,6 +989,55 @@
 .electrical-assumption { font-size: 10px; color: #60748b; }
 .selection-panel, .wiring-panel { max-height: calc(100% - 180px); overflow-y: auto; }
 .mounted-info { overflow-wrap: anywhere; }
+.ic-selection-panel { width: 400px; align-items: flex-start; flex-wrap: wrap; }
+.ic-selection-panel > div { width: 100%; }
+.ic-details { font-size: 12px; line-height: 1.5; color: #334155; }
+.ic-details p { margin: 8px 0; white-space: normal; }
+.ic-status { padding: 8px 10px; border-radius: 6px; background: #f1f5f9; }
+.ic-status-ready { background: #e8f7ee; color: #166534; }
+.ic-status-fault { background: #fff1f2; color: #9f1239; }
+.ic-guide { margin: 10px 0; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.ic-guide summary, .ic-pin-reason summary { cursor: pointer; color: #1d4ed8; min-height: 28px; padding: 4px 0; }
+.ic-guide summary:focus-visible, .ic-pin-reason summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ic-guide ol { padding-left: 20px; margin: 8px 0; }
+.ic-guide li { margin: 8px 0; }
+.ic-pin-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.ic-pin-table caption { text-align: left; padding: 8px 0; font-weight: 600; }
+.ic-pin-table th, .ic-pin-table td { text-align: left; padding: 6px 3px; border-bottom: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; }
+.ic-pin-table th:first-child { width: 28px; }
+.ic-pin-table th:nth-child(2) { width: 33%; }
+.ic-pin-table th:nth-child(3) { width: 42px; }
+.ic-pin-table td small { display: block; color: #475569; }
+.logic-state { display: inline-block; font-weight: 700; }
+.logic-high { color: #166534; }
+.logic-low { color: #1e40af; }
+.logic-unknown { color: #854d0e; }
+.logic-fault { color: #9f1239; }
+.ic-pin-reason { white-space: normal; }
+.ic-model-note { color: #475569; }
+.ic-actions { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; top: -14px; background: #fff; padding: 6px 0; z-index: 1; }
+.selection-panel .ic-actions button { width: auto; padding: 0 10px; min-height: 36px; }
+.ic-gate-summary { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.ic-all-pins > summary { cursor: pointer; min-height: 36px; padding: 8px 0; color: #1d4ed8; }
+.ic-all-pins > summary:focus-visible { outline: 2px solid #2563eb; }
+.ic-floating-guide { position: absolute; top: 72px; right: 16px; width: 320px; max-width: calc(100% - 32px); border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 10px; font-size: 12px; line-height: 1.5; z-index: 4; box-shadow: 0 4px 14px #293b5115; }
+.ic-floating-guide-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ic-floating-guide-heading button { padding: 8px; min-height: 36px; color: #1d4ed8; }
+.ic-floating-guide > details > summary { cursor: pointer; min-height: 36px; padding: 8px 0; }
+.ic-floating-guide .ic-guide-content { max-height: 28vh; overflow-y: auto; overscroll-behavior: contain; }
+.ic-guide-content ol { padding-left: 20px; }
+.ic-guide-content li { margin: 8px 0; }
+.ic-guide-content summary { cursor: pointer; min-height: 36px; padding: 8px 0; color: #1d4ed8; }
+.ic-floating-guide button:focus-visible, .ic-guide-content summary:focus-visible, .ic-floating-guide summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ic-floating-guide.with-supply-fault { top: 202px; }
+@media (max-width: 600px) {
+  .ic-selection-panel { max-width: calc(100% - 30px); }
+  .ic-details { font-size: 12px; }
+  .ic-guide summary, .ic-pin-reason summary { min-height: 36px; }
+  .ic-floating-guide { top: 60px; right: 15px; width: calc(100% - 30px); }
+  .ic-floating-guide .ic-guide-content { max-height: 20vh; }
+  .ic-floating-guide.with-supply-fault { top: 240px; }
+}
 .selection-panel { max-width: calc(100% - 45px); }
 .selection-panel > div { min-width: 0; }
 .power-output-state, .led-power-state { font-size: 11px; color: #60748b; }

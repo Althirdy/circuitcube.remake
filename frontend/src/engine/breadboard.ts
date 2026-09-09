@@ -1,4 +1,5 @@
 import type { BoardModelId, ComponentInstance, LedMount, ModelId, Point3, SocketDefinition, SocketSource, SwitchMount } from '../types/workspace';
+import { isLogicIc } from './digital/logicIcDefinitions';
 
 export const SOCKET_PITCH = 0.00254;
 export const BOARD_SURFACE = 0.008765;
@@ -7,7 +8,7 @@ export const WIRE_COLORS = { black: '#303740', red: '#df4444', blue: '#2675dd', 
 // Coordinates measured from the exported 400- and 830-contact GLBs, before
 // their 0.1 runtime transform. The older Blender generator is not authoritative.
 export const isBreadboard = (id: ModelId): id is BoardModelId => id === 'breadboard' || id === 'breadboard-large';
-export const isMountable = (id: ModelId) => id === 'led' || id === 'slide-switch' || id === 'resistor';
+export const isMountable = (id: ModelId) => id === 'led' || id === 'slide-switch' || id === 'resistor' || isLogicIc(id);
 export function sourceSockets(modelId: BoardModelId = 'breadboard'): SocketDefinition[] {
   const large = modelId === 'breadboard-large';
   const sockets: SocketDefinition[] = [];

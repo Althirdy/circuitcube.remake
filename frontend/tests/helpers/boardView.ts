@@ -7,10 +7,12 @@ import { prepareModel } from '../../src/lib/modelAssets';
 import { createDemo } from '../../src/lib/placement';
 import { localToWorld, socketById } from '../../src/engine/breadboard';
 import type { Point3 } from '../../src/types/workspace';
+import { openLibrarySections } from './library';
 
 export async function focusBoard(page: Page) {
   await page.goto('/');
-  await expect(page.locator('.model-thumbnail img')).toHaveCount(6);
+  await expect(page.locator('.model-thumbnail img')).toHaveCount(9);
+  await openLibrarySections(page);
   if (!(await page.getByRole('complementary').isVisible())) await page.getByRole('button', { name: 'Toggle component library' }).click();
   await page.locator('.scene-item').filter({ hasText: 'Full-Size Breadboard' }).click();
   const close = page.getByRole('complementary').getByRole('button', { name: 'Close component library' });

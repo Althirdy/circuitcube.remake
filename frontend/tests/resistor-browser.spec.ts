@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { focusBoard } from './helpers/boardView';
 import { powerView } from './helpers/powerView';
 import { socketById } from '../src/engine/breadboard';
+import { openLibrarySections } from './helpers/library';
 
 test('resistor placement, invalid spans, value editing, dragging, reversal and detachment', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
@@ -84,7 +85,8 @@ test('series LED current, voltage control, overload recovery and selected wire r
 
 test('narrow supply controls, reduced motion and independent voltage settings', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/'); await expect(page.locator('.model-thumbnail img')).toHaveCount(6);
+  await page.goto('/'); await expect(page.locator('.model-thumbnail img')).toHaveCount(9);
+  await openLibrarySections(page);
   await page.locator('.model-card').filter({ hasText: 'Bench DC Power Supply' }).getByRole('button', { name: 'Add at view center', exact: true }).click();
   await page.getByRole('button', { name: 'Set supply to 3.3 volts', exact: true }).click();
   await page.locator('.scene-item').filter({ hasText: 'Bench DC Power Supply' }).first().click();
